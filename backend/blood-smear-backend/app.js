@@ -23,7 +23,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 mongoose.connect(
   process.env.MONGO_URI ||
-    "mongodb+srv://skhsingh:kJcy8ZWBATFV6uz8@cluster0.2c0gaiq.mongodb.net/Blood_Smear_Database?retryWrites=true&w=majority&appName=Cluster0",
+    "",
   {
     useNewUrlParser: true,
     useUnifiedTopology: true,
