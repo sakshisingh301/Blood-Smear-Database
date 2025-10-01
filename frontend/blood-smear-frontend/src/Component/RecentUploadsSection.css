@@ -1,0 +1,223 @@
+/* Recent Uploads Section Styles */
+.recent-uploads-section {
+  background: linear-gradient(135deg, #6FCFEB 0%, #00B2E3 50%, #0047BA 100%);
+  padding: 4rem 0;
+  position: relative;
+  overflow: hidden;
+  border-top: 3px solid #FFBF00;
+  position: relative;
+}
+
+.recent-uploads-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, #FFBF00 50%, transparent 100%);
+  opacity: 0.8;
+}
+
+.recent-uploads-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.section-header h2 {
+  color: #003A5D;
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  font-family: 'Georgia', serif;
+  text-shadow: 0 2px 4px rgba(0, 58, 93, 0.2);
+  position: relative;
+}
+
+.section-header h2::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, #FFBF00 50%, transparent 100%);
+  border-radius: 2px;
+}
+
+.section-header p {
+  color: #ffffff;
+  font-size: 1.1rem;
+  margin: 0;
+  font-weight: 500;
+  opacity: 0.95;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.uploads-carousel {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 3rem;
+}
+
+.uploads-track {
+  display: flex;
+  animation: scroll 30s linear infinite;
+  gap: 2rem;
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.upload-item {
+  flex: 0 0 250px;
+  position: relative;
+}
+
+.upload-image-container {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(0, 58, 93, 0.2);
+  transition: all 0.3s ease;
+  background: white;
+  border: 2px solid rgba(255, 191, 0, 0.3);
+}
+
+.upload-image-container:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0, 58, 93, 0.3);
+  border-color: rgba(255, 191, 0, 0.6);
+}
+
+.upload-image {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.upload-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  padding: 1rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.upload-image-container:hover .upload-overlay {
+  opacity: 1;
+}
+
+.upload-info {
+  color: white;
+  text-align: center;
+}
+
+.species {
+  display: block;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.uploader {
+  display: block;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.section-footer {
+  text-align: center;
+}
+
+.view-all-btn {
+  background: linear-gradient(135deg, #003A5D 0%, #0047BA 100%);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 58, 93, 0.3);
+  border: 2px solid rgba(255, 191, 0, 0.2);
+}
+
+.view-all-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 58, 93, 0.4);
+  background: linear-gradient(135deg, #0047BA 0%, #003A5D 100%);
+  border-color: rgba(255, 191, 0, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .recent-uploads-section {
+    padding: 3rem 0;
+  }
+  
+  .recent-uploads-container {
+    padding: 0 1rem;
+  }
+  
+  .section-header h2 {
+    font-size: 2rem;
+  }
+  
+  .section-header p {
+    font-size: 1rem;
+  }
+  
+  .upload-item {
+    flex: 0 0 200px;
+  }
+  
+  .upload-image {
+    height: 150px;
+  }
+  
+  .uploads-track {
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-header h2 {
+    font-size: 1.75rem;
+  }
+  
+  .upload-item {
+    flex: 0 0 180px;
+  }
+  
+  .upload-image {
+    height: 130px;
+  }
+  
+  .uploads-track {
+    gap: 1rem;
+  }
+  
+  .view-all-btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.9rem;
+  }
+}
