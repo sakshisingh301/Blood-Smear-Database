@@ -314,42 +314,95 @@ const AdminUploadPage = () => {
             job_id: job_id
           });
           
-          // Fetch the upload data immediately after successful upload
-          try {
-            const uploadResponse = await fetch(`http://localhost:3000/api/uploads/${job_id}`);
-            const uploadResult = await uploadResponse.json();
+          // Start polling for upload status
+          let pollCount = 0;
+          const maxPolls = 120; // 120 polls * 5 seconds = 10 minutes max
+          
+          const pollInterval = setInterval(async () => {
+            pollCount++;
             
-            if (uploadResponse.ok && uploadResult.success) {
-              const uploadData = uploadResult.data;
+            try {
+              const uploadResponse = await fetch(`http://localhost:3000/api/uploads/${job_id}`);
+              const uploadResult = await uploadResponse.json();
               
-              // Save the upload data to localStorage for recent uploads page
-              const newUpload = {
-                id: job_id,
-                timestamp: new Date().toISOString(),
-                specimen: uploadData.common_name || 'Unknown Specimen',
-                scientific_name: uploadData.scientific_name,
-                type: uploadData.whole_slide_image ? 'Full Slide + Cellavision' : 'Cellavision Only',
-                status: uploadData.status,
-                contributor: uploadData.contributor,
-                collected_at: uploadData.collected_at,
-                source: uploadData.source,
-                uploadData: uploadData // Store the complete data
-              };
+              console.log(`Polling attempt ${pollCount}: Status = ${uploadResult.data?.status}`, uploadResult);
               
-              // Add to recent uploads
-              const updatedUploads = [newUpload, ...recentUploads.slice(0, 4)]; // Keep last 5 uploads
-              setRecentUploads(updatedUploads);
-              localStorage.setItem('recentUploads', JSON.stringify(updatedUploads));
-              
-              console.log('Upload data saved:', uploadData);
+              if (uploadResponse.ok && uploadResult.success) {
+                const uploadData = uploadResult.data;
+                
+                // Update job status in UI
+                setJobStatus({
+                  status: uploadData.status,
+                  message: getStatusMessage(uploadData.status),
+                  job_id: job_id
+                });
+                
+                // Check if S3 upload is complete
+                const isS3UploadComplete = 
+                  uploadData.status === 'uploaded_to_s3' && 
+                  uploadData.whole_slide_image?.s3_storage?.upload_success;
+                
+                // Also check if partially uploaded or failed
+                const isProcessingComplete = 
+                  uploadData.status === 'uploaded_to_s3' ||
+                  uploadData.status === 'partially_uploaded' ||
+                  uploadData.status === 'failed';
+                
+                if (isS3UploadComplete) {
+                  console.log("Processing complete! S3 data:", uploadData.whole_slide_image?.s3_storage);
+                  clearInterval(pollInterval);
+                  
+                  // Save the upload data to localStorage for recent uploads page
+                  const newUpload = {
+                    id: job_id,
+                    timestamp: new Date().toISOString(),
+                    specimen: uploadData.common_name || 'Unknown Specimen',
+                    scientific_name: uploadData.scientific_name,
+                    type: uploadData.whole_slide_image ? 'Full Slide + Cellavision' : 'Cellavision Only',
+                    status: uploadData.status,
+                    contributor: uploadData.contributor,
+                    collected_at: uploadData.collected_at,
+                    source: uploadData.source,
+                    uploadData: uploadData // Store the complete data with S3 info
+                  };
+                  //convert url to png
+                  
+
+                  console.log("new upload after getting result after putting job id ",newUpload)
+                  
+                  // Add to recent uploads
+                  const updatedUploads = [newUpload, ...recentUploads.slice(0, 4)]; // Keep last 5 uploads
+                  setRecentUploads(updatedUploads);
+                  localStorage.setItem('recentUploads', JSON.stringify(updatedUploads));
+                  
+                  
+                  // Show success message and redirect
+                  if (uploadData.status === 'uploaded_to_s3') {
+                    alert('✅ Upload completed successfully! Files are now available on S3.');
+                  } else if (uploadData.status === 'partially_uploaded') {
+                    alert('⚠️ Upload partially completed. Some files may have failed.');
+                  } else if (uploadData.status === 'failed') {
+                    alert('❌ Upload processing failed. Please check the job status page.');
+                  }
+                  
+                  setTimeout(() => {
+                    navigate('/recent-uploads');
+                  }, 2000);
+                }
+                
+                // Stop polling after max attempts
+                if (pollCount >= maxPolls) {
+                  console.warn("Polling timeout - processing is taking longer than expected");
+                  clearInterval(pollInterval);
+                  alert('⏱️ Processing is taking longer than expected. You can check the status later from Recent Uploads page.');
+                  navigate('/recent-uploads');
+                }
+              }
+            } catch (error) {
+              console.error('Failed to fetch upload data:', error);
+              // Don't stop polling on error, continue trying
             }
-          } catch (error) {
-            console.error('Failed to fetch upload data:', error);
-          }
-          // Show processing message and redirect to recent uploads page
-          setTimeout(() => {
-            navigate('/recent-uploads');
-          }, 3000);
+          }, 5000); // Poll every 5 seconds
           
           // Reset form after successful upload
           setFormData({

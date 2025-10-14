@@ -11,11 +11,15 @@ async function connectProducer() {
   await producer.connect();
 }
 
-async function sendJobToQueue(jobData) {
+async function sendJobToQueue(job_id) {
+  const payload = { job_id };
   await producer.send({
     topic: "image-processing",
-    messages: [{ value: JSON.stringify(jobData) }],
+    messages: [{ value: JSON.stringify(payload) }],
   });
 }
 
+
 module.exports = { connectProducer, sendJobToQueue };
+
+

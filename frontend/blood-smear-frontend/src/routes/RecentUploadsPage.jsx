@@ -23,6 +23,7 @@ const RecentUploadsPage = () => {
   };
 
   const getUploadType = (upload) => {
+    console.log("getting upload type ",upload)
     // Use the upload data to determine type
     if (upload.uploadData) {
       const hasWholeSlide = upload.uploadData.whole_slide_image;
@@ -43,7 +44,11 @@ const RecentUploadsPage = () => {
   };
 
   const viewUploadedContent = (upload) => {
+    
+  
     if (upload.uploadData) {
+      console.log("upload data after click view content ",upload.uploadData)
+    
       // Navigate to uploaded content page with the complete data
       navigate('/uploaded-content', { 
         state: { uploadData: upload.uploadData } 

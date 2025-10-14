@@ -23,120 +23,158 @@ const kafka = new Kafka({
 const consumer = kafka.consumer({ groupId: "image-processing-group" });
 
 // 4. Job processing logic
+//get job id
+  //update status to processing 
+  //get full slide path
+  //scan the full slide
+  //if infected, update status to failed
+  //if clean, update status to clean
+  //convert fullslide to xyz format
+  //upload to s3
+  //update status to uploaded_to_s3
+  //update status to ready_for_access
+  // same for cellavision images
 async function processJob(job) {
   const jobId = job.job_id;
-
+  
   try {
     console.log(` Processing started for job:${jobId}`);
-    const jobData = job.data || job;
+
 
     const {
       whole_slide_image_path: wholeSlidePath,
       cellavision_image_paths: cellavisionImagePaths = {},
-    } = jobData;
+    } = job;
+
 
     // Store temp file path
-    await UploadMetadata.updateOne(
-      { job_id: jobId },
-      { $set: { "whole_slide_image.temp_file_path": wholeSlidePath } }
-    );
-
-    // Scan whole slide image
-    const scanningforfullSlide = await isFileClean(wholeSlidePath);
-    // If the whole slide image is infected, update metadata and throw error
-    if (!scanningforfullSlide) {
+    if(wholeSlidePath){
       await UploadMetadata.updateOne(
         { job_id: jobId },
-        {
-          $set: {
-            is_image_corrupted: true,
-            status: "failed",
-            error_message: "Whole slide image is infected",
-          },
-        }
+        { $set: { "whole_slide_image.temp_file_path": wholeSlidePath } }
       );
-      throw new Error(`[${jobId}] Whole slide image is infected`);
-    }
-    // Scan all cellavision images
-    for (const [cellType, imagePaths] of Object.entries(
-      cellavisionImagePaths
-    )) {
-      for (const imagePath of imagePaths) {
-        const clean = await isFileClean(imagePath);
-        if (!clean) {
-          await UploadMetadata.updateOne(
-            { job_id: jobId },
-            {
-              $set: {
-                is_image_corrupted: true,
-                status: "failed",
-                error_message: `Infected cellavision image in ${cellType}`,
-              },
-            }
-          );
-          throw new Error(
-            `[${jobId}] Cellavision image infected: ${imagePath}`
-          );
-        }
+    
+      // Scan whole slide image
+      const scanningforfullSlide = await isFileClean(wholeSlidePath);
+      // If the whole slide image is infected, update metadata and throw error
+      if (!scanningforfullSlide) {
+        
+        await UploadMetadata.updateOne(
+          { job_id: jobId },
+          {
+            $set: {
+              is_image_corrupted: true,
+              error_message: "Whole slide image is infected",
+              status: "failed",
+            },
+          }
+        );
+        throw new Error(`[${jobId}] Whole slide image is infected`);
       }
+  
     }
+    
 
-    // All clean
-    await UploadMetadata.updateOne(
-      { job_id: jobId },
-      { $set: { is_image_corrupted: false, status: "clean" } }
-    );
-    //convert VSI to TIFF if needed
-    const result = await UploadMetadata.findOne({ job_id: jobId });
-    // If the result is clean, proceed with conversion
-    if (result?.status === "clean") {
-      const { original_filename, temp_file_path } = result.whole_slide_image;
-      const inputImagePath =
-        result?.whole_slide_image?.temp_file_path || wholeSlidePath;
-      const outputImagePathTiff = inputImagePath.replace(/\.vsi$/i, ".tiff");
-
-      if (original_filename.endsWith(".vsi")) {
-        console.log(
-          `[${jobId}] Converting ${inputImagePath} to ${outputImagePathTiff}`
-        );
-        const conversionResult = await convertVsiToTiff(
-          inputImagePath,
-          outputImagePathTiff
-        );
-        if (conversionResult.success) {
-          await UploadMetadata.updateOne(
-            { job_id: jobId },
-            {
-              $set: {
-                "whole_slide_image.converted_to_tiff": true,
-                "whole_slide_image.tiff_file_path": conversionResult.outputPath,
-              },
-            }
-          );
-
-          //uplod images to AWS S3 Bucket
-          console.log(`[${jobId}] 📤 Starting S3 uploads...`);
-          const s3UploadResult = await uploadImagesToS3(jobId);
-          if (s3UploadResult.success) {
-            console.log(`[${jobId}] 📤 S3 uploads completed successfully!`);
+    if(Object.keys(cellavisionImagePaths).length > 0){
+      // Scan all cellavision images
+      for (const [cellType, imagePaths] of Object.entries(cellavisionImagePaths)) {
+        for (const imagePath of imagePaths) {
+          const clean = await isFileClean(imagePath);
+          if (!clean) {
+            await UploadMetadata.updateOne(
+              { job_id: jobId },
+              {
+                $set: {
+                  is_image_corrupted: true,
+                  status: "failed",
+                  error_message: `Infected cellavision image in ${cellType}`,
+                },
+              }
+            );
+            throw new Error(`[${jobId}] Cellavision image infected: ${imagePath}`);
           }
         }
       }
     }
-  } catch (err) {
+    
+
+    
+    //check if the whole slide image and cellavision images are virus free
+    const result = await UploadMetadata.findOne({ job_id: jobId });
     await UploadMetadata.updateOne(
       { job_id: jobId },
-      {
-        $set: {
-          status: "failed",
-          error_message: err.message,
-          is_image_corrupted: true,
-        },
-      }
+      { $set: { status: "clean" } }
     );
+    const resultAfterUpdate = await UploadMetadata.findOne({ job_id: jobId });
+    if(resultAfterUpdate?.status === "clean")
+    {
+      //get cellavision images and store it in s3
+      //check if full slide image is present
+      
+      //cnvert full slide image to dzi and store it in s3 and change the status to uploaded_to_s3
+      //check if cellavision images are present
+      //
+      //get whole slide image and convert it in desired format and store it in s3, change the status to uploaded_to_s3 and finally ready to see
+
+
+    }
+      
+    console.log("result after update...",resultAfterUpdate)
+  } catch (err) {
     console.error(`[${jobId}] Processing failed:`, err);
   }
 }
+
+    
+    
+// if (result?.status === "clean" && result?.whole_slide_image) {
+//   const { original_filename, temp_file_path } = result.whole_slide_image;
+//   const inputImagePath =
+//     result?.whole_slide_image?.temp_file_path || wholeSlidePath;
+//   const outputImagePathTiff = inputImagePath.replace(/\.vsi$/i, ".tiff");
+
+//       if (original_filename.endsWith(".vsi")) {
+//         console.log(
+//           `[${jobId}] Converting ${inputImagePath} to ${outputImagePathTiff}`
+//         );
+//         const conversionResult = await convertVsiToTiff(
+//           inputImagePath,
+//           outputImagePathTiff
+//         );
+//         if (conversionResult.success) {
+//           await UploadMetadata.updateOne(
+//             { job_id: jobId },
+//             {
+//               $set: {
+//                 "whole_slide_image.converted_to_tiff": true,
+//                 "whole_slide_image.tiff_file_path": conversionResult.outputPath,
+//               },
+//             }
+//           );
+
+//           //uplod images to AWS S3 Bucket
+//           console.log(`[${jobId}] 📤 Starting S3 uploads...`);
+//           const s3UploadResult = await uploadImagesToS3(jobId);
+//           if (s3UploadResult.success) {
+//             console.log(`[${jobId}] 📤 S3 uploads completed successfully!`);
+//           }
+//         }
+//       }
+//     }
+//   } catch (err) {
+//     await UploadMetadata.updateOne(
+//       { job_id: jobId },
+//       {
+//         $set: {
+//           status: "failed",
+//           error_message: err.message,
+//           is_image_corrupted: true,
+//         },
+//       }
+//     );
+//     console.error(`[${jobId}] Processing failed:`, err);
+//   }
+
 
 //converts windows path to /mnt/c/ style path for WSL compatibility
 function toWslPath(winPath) {
@@ -200,21 +238,15 @@ async function run() {
 
   await consumer.run({
     eachMessage: async ({ message }) => {
-      const job = JSON.parse(message.value.toString());
-      console.log("Received job from Kafka:", job);
-      const jobId = job.job_id;
-
-      let dbJob = await UploadMetadata.findOne({ job_id: jobId });
-      console.log(`[${jobId}] Received job:`, job);
-
-      if (!dbJob) {
-        dbJob = await UploadMetadata.create({
-          job_id: jobId,
-          status: "processing",
-        });
+      const {job_id} = JSON.parse(message.value.toString());
+      console.log("Received job from Kafka:", job_id);
+      let dbJob = await UploadMetadata.findOne({ job_id: job_id });
+      if(!dbJob){
+        console.error(`[${job_id}] No job found in DB. Skipping processing.`);
+        return; 
       }
-
-      await processJob(job);
+  
+      await processJob(dbJob);
     },
   });
 }

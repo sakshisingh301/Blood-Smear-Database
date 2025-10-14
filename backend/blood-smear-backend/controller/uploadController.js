@@ -10,6 +10,7 @@ const UPLOAD_ROOT = path.join(__dirname, "..", "uploads");
 exports.uploadImage = async (req, res) => {
   try {
     const metadata = JSON.parse(req.body.metadata || "{}");
+  
     const {
       common_name,
       scientific_name,
@@ -34,10 +35,11 @@ exports.uploadImage = async (req, res) => {
 
     } = metadata;
 
+    //get whole slide image
     const wholeSlide = req.files.find((f) => f.fieldname === "whole_slide");
-    console.log(wholeSlide)
-   
+   //allowed image types
     const allowedMimeTypes = ['image/tiff', 'image/jpeg', 'image/png', 'image/x-svs','image/jpg','application/octet-stream'];
+    //check the format of the whole slide image
     if(wholeSlide){
       if (!allowedMimeTypes.includes(wholeSlide.mimetype)) {
         return res.status(400).json({ 
@@ -50,40 +52,48 @@ exports.uploadImage = async (req, res) => {
 console.log("cellavision images.....")
 
 
-// Validate cellavision images
-for (const image of req.files) {
-  if (image.fieldname.startsWith("cellavision")) {
-    if (!allowedMimeTypes.includes(image.mimetype)) {
-      return res.status(400).json({ 
-        message: `Invalid cellavision file type: ${image.originalname}`,
-        receivedType: image.mimetype 
-      });
-    }
-  }
-}
-console.log("cellavision imagesprocessing")
+// Validate cellavision image format for each file
+// for (const image of cellavisionFiles) {
+//   if (image.fieldname.startsWith("cellavision")) {
+//     if (!allowedMimeTypes.includes(image.mimetype)) {
+//       return res.status(400).json({ 
+//         message: `Invalid cellavision file type: ${image.originalname}`,
+//         receivedType: image.mimetype 
+//       });
+//     }
+//   }
+// }
+// console.log("cellavision imagesprocessing")
+// console.log("req.files:", req.files.map(f => ({ fieldname: f.fieldname, originalname: f.originalname })));
+// console.log("req.body keys:", Object.keys(req.body));
+// console.log("req.body values:", Object.entries(req.body).filter(([key, value]) => key.includes('cell_type')));
 
     if (
       !common_name ||
       !user_email ||
-      !health_status ||
       !approved 
     ) {
       return res.status(400).json({ message: "Missing required fields.Please fill all the required field" });
     }
 
     const job_id = uuidv4();
+    //create job directory
     const jobDir = path.join(UPLOAD_ROOT, job_id);
+    //create whole slide directory
     const slideDir = path.join(jobDir, "whole_slide");
+    //create cellavision directory
     const cellavisionDir = path.join(jobDir, "cellavision");
 
-    // Create folders
+    // Create folders for whole slide and cellavision
     await fs.mkdir(slideDir, { recursive: true });
     await fs.mkdir(cellavisionDir, { recursive: true });
+    let slidePath = null;
 
+    if(wholeSlide){
     // Save whole slide image
-    const slidePath = path.join(slideDir, wholeSlide.originalname);
+     slidePath = path.join(slideDir, wholeSlide.originalname);
     await fs.writeFile(slidePath, wholeSlide.buffer);
+    }
 
     const cellavisionImages = {};
     const savedImagePaths = {
@@ -91,17 +101,30 @@ console.log("cellavision imagesprocessing")
       cellavision_image_paths: {},
     };
 
+    //process cellavision images
     for (const image of req.files) {
       if (!image.fieldname.startsWith("cellavision")) continue;
-
+     
       const match = image.fieldname.match(/^cellavision\[(\d+)\]$/);
       if (!match) continue;
 
       const index = parseInt(match[1]);
-      const cellType = req.body.cell_type[index];
-      if (!cellType) continue;
+      
+      // Handle both array format and indexed format
+      let cellType;
+      if (Array.isArray(req.body.cell_type)) {
+        cellType = req.body.cell_type[index];
+      } else {
+        cellType = req.body[`cell_type[${index}]`];
+      }
+      
+      console.log(`Index: ${index}, cellType: "${cellType}"`);
+      if (!cellType) {
+        console.log(`Skipping - no cell type for index ${index}`);
+        continue;
+      }
 
-      // Create folder for cell type if not exists
+      // Create folder for each cell type if not exists
       const cellTypeDir = path.join(cellavisionDir, cellType);
       await fs.mkdir(cellTypeDir, { recursive: true });
 
@@ -144,19 +167,21 @@ console.log("cellavision imagesprocessing")
       source,
       approved,
       user_role,
-      whole_slide_image: {
+      whole_slide_image: wholeSlide ? {
         original_filename: wholeSlide.originalname,
         mime_type: wholeSlide.mimetype,
         size_bytes: wholeSlide.size,
         temp_file_path: slidePath,
-      },
+      }:null,
       cellavision_images: cellavisionImages,
       job_id,
       ...savedImagePaths, // contains full paths to saved files
     };
 
+    console.log("response before the kafka",response)
+
     await UploadMetadata.create(response);
-    await sendJobToQueue(response);
+    await sendJobToQueue(response.job_id);
     console.log("Job sent to Kafka queue:", job_id);
 
     res.status(200).json({
