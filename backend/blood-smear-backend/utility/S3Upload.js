@@ -3,6 +3,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const AWS = require("aws-sdk");
 const fs = require("fs");
 const UploadMetadata = require("../models/UploadMetadata.js");
+const { Readable } = require("stream");
 
 
 
@@ -12,61 +13,112 @@ const s3 = new AWS.S3({
   region: process.env.AWS_REGION,
 });
 
-const S3_BUCKET = process.env.S3_BUCKET;
+const S3_BUCKET_RAW = process.env.S3_BUCKET_RAW;
+const S3_BUCKET_PROCESSED = process.env.S3_BUCKET_PROCESSED;
 const CLOUD_FRONT_DOMAIN = process.env.CLOUD_FRONT_DOMAIN;
 
-/**
- * Uploads a single file to S3 and returns S3/CloudFront metadata.
- */
-async function uploadToS3(localPath, s3Key) {
+//s3 key decides the structure of the folder in the s3 bucket
+function generateS3Key(job_id,fileName,fileTypes,cellTypes) {
+
+  if(fileTypes==="whole_slide"){
+    return `uploads/${job_id}/whole_slide/${fileName}`;
+  }else if(fileTypes==="cellavision"){
+    return `uploads/${job_id}/cellavision/${cellTypes}/${fileName}`;
+  }
+ 
+}
+
+async function uploadToProcessedBucket(buffer, s3Key, contentType, metadata = {}) {
   try {
+    const stream = Readable.from(buffer);
     
-
-
-    const fileStream = fs.createReadStream(localPath);
     const params = {
-      Bucket: S3_BUCKET,
+      Bucket: S3_BUCKET_PROCESSED,
       Key: s3Key,
-      Body: fileStream,
+      Body: stream,
       ACL: "private",
+      ContentType: contentType,
+      Metadata: {
+        'uploaded-at': new Date().toISOString(),
+        'bucket-type': 'processed',
+        ...metadata
+      }
     };
-    //check file size, if size is 100MB then use multipart upload else use single upload
-    const stats = fs.statSync(localPath);
-    const fileSizeInMb=stats.size/1024/1024;
-    let result;
-    if(fileSizeInMb>100){
-      // S3 will:
-// 1. Split into 80 parts of 10MB
-// 2. Upload 4 parts at a time
-// 3. Total upload time: ~3-5 minutes instead of 15-20 minutes
-// 4. Much more reliable for large files
 
-      console.log(`Large file detected (${fileSizeInMb.toFixed(2)}MB), using multipart upload`);
-      result = await s3.upload(params, {
-        partSize: 10 * 1024 * 1024, // 10MB parts
-        queueSize: 4 // Parallel uploads
-      }).promise();
-
-    }
-    else{
-      console.log(`Small file detected (${fileSizeInMb.toFixed(2)}MB), using single upload`);
-      result = await s3.upload(params).promise();
-    }
-
+    const result = await s3.upload(params).promise();
+    
+    // Generate CloudFront URL only for processed files
     const cloudfrontUrl = `${CLOUD_FRONT_DOMAIN}/${s3Key}`;
 
     return {
       success: true,
+      bucket_name: S3_BUCKET_RAW,
       s3_url: result.Location,
       s3_key: result.Key,
       s3_etag: result.ETag,
       s3_bucket: result.Bucket,
-      cloudfront_url: cloudfrontUrl,
+      cloudfront_url: cloudfrontUrl, // CloudFront URL for processed files
       uploaded_at: new Date(),
       upload_success: true,
     };
   } catch (err) {
-    console.error("S3 upload error:", err);
+    console.error("Processed S3 upload error:", err);
+    return {
+      success: false,
+      error: err.message,
+      upload_success: false,
+    };
+  }
+}
+
+
+
+async function streamToRawBucket(fileBuffer, s3Key, originalFilename, mimeType) {
+  try {
+    const stream = Readable.from(fileBuffer);
+    
+    const params = {
+      Bucket: S3_BUCKET_RAW,
+      Key: s3Key,
+      Body: stream,
+      ACL: "private",
+      ContentType: mimeType,
+      Metadata: {
+        'original-filename': originalFilename,
+        'uploaded-at': new Date().toISOString(),
+        'job-id': s3Key.split('/')[0],
+        'bucket-type': 'raw'
+      }
+    };
+
+    const fileSizeInMb = fileBuffer.length / (1024 * 1024);
+    let result;
+    
+    if (fileSizeInMb > 100) {
+      console.log(`Large file detected (${fileSizeInMb.toFixed(2)}MB), using multipart upload`);
+      result = await s3.upload(params, {
+        partSize: 10 * 1024 * 1024,
+        queueSize: 4
+      }).promise();
+    } else {
+      console.log(`Small file detected (${fileSizeInMb.toFixed(2)}MB), using single upload`);
+      result = await s3.upload(params).promise();
+    }
+
+    return {
+      success: true,
+      bucket_name: S3_BUCKET_RAW,
+      s3_url: result.Location,
+      s3_key: result.Key,
+      s3_etag: result.ETag,
+      s3_bucket: S3_BUCKET_RAW,
+      cloudfront_url: null,
+      uploaded_at: new Date(),
+      upload_success: true,
+      bucket_type: 'raw',
+    };
+  } catch (err) {
+    console.error("Raw S3 streaming upload error:", err);
     return {
       success: false,
       error: err.message,
@@ -76,83 +128,27 @@ async function uploadToS3(localPath, s3Key) {
 }
 
 /**
- * Uploads all images (whole slide + cellavision) for a job to S3.
- * Updates the UploadMetadata document for each uploaded image.
+ * Get files from raw bucket for processing (uses S3 URL)
  */
-async function uploadImagesToS3(jobId) {
-  const uploadMeta = await UploadMetadata.findOne({ job_id: jobId });
-  if (!uploadMeta) throw new Error("Job metadata not found!");
-
-  // WHOLE SLIDE
-  const wsi = uploadMeta.whole_slide_image;
-  const wsiPath = wsi.converted_to_tiff
-    ? wsi.tiff_file_path
-    : wsi.temp_file_path;
-  const wsiFilename = path.basename(wsiPath);
-  const wsiKey = `uploads/${jobId}/whole_slide/${wsiFilename}`;
-
-  const wsiS3Meta = await uploadToS3(wsiPath, wsiKey);
-
-  // Update DB for whole slide image
-  await UploadMetadata.updateOne(
-    { job_id: jobId },
-    { $set: { "whole_slide_image.s3_storage": wsiS3Meta } }
-  );
-  console.log(`[${jobId}] Whole slide image uploaded to S3: ${wsiS3Meta}`);
-
-  // CELLAVISION IMAGES
-  let uploaded = wsiS3Meta.success ? 1 : 0;
-  let failed = wsiS3Meta.success ? 0 : 1;
-  let total = 1;
-
-  if (uploadMeta.cellavision_images) {
-    for (const [cellType, images] of uploadMeta.cellavision_images.entries()) {
-      for (let imgIdx = 0; imgIdx < images.length; imgIdx++) {
-        total += 1;
-        const cellImage = images[imgIdx];
-        const cellKey = `uploads/${jobId}/cellavision/${cellType}/${path.basename(
-          cellImage.temp_file_path
-        )}`;
-        const cellS3Meta = await uploadToS3(cellImage.temp_file_path, cellKey);
-
-        // Save in database
-        images[imgIdx].s3_storage = cellS3Meta;
-        if (cellS3Meta.success) uploaded += 1;
-        else failed += 1;
-      }
-      // Ensure cellavision_images Map saved
-      uploadMeta.cellavision_images.set(cellType, images);
-    }
-    await uploadMeta.save(); // Updates entire document
+async function getRawFileStream(s3Key,bucketName) {
+  try {
+    const params = {
+      Bucket: bucketName,
+      Key: s3Key
+    };
+    
+    const s3Object = await s3.getObject(params).promise();
+    return s3Object.Body;
+  } catch (error) {
+    console.error(`Failed to get file from raw bucket: ${s3Key}`, error);
+    throw error;
   }
-
-  // Update summary
-  await UploadMetadata.updateOne(
-    { job_id: jobId },
-    {
-      $set: {
-        status: uploaded === total ? "uploaded_to_s3" : "partially_uploaded",
-        "s3_upload_summary.total_files": total,
-        "s3_upload_summary.uploaded_files": uploaded,
-        "s3_upload_summary.failed_files": failed,
-        "s3_upload_summary.upload_completed_at": new Date(),
-      },
-    }
-  );
-
-  console.log(
-    `[${jobId}] S3 uploads finished. Uploaded: ${uploaded}, Failed: ${failed}`
-  );
-  return {
-    success: uploaded === total,
-    uploaded,
-    failed,
-    total,
-  };
 }
-
-// Export the main function
-module.exports = {
-  uploadImagesToS3,
-  uploadToS3, 
+module.exports={
+  generateS3Key,
+  uploadToProcessedBucket,
+  streamToRawBucket,
+  getRawFileStream,
 };
+
+
