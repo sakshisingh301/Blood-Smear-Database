@@ -8,9 +8,10 @@ const S3StorageSchema = new mongoose.Schema(
     s3_key: { type: String, default: null },
     s3_etag: { type: String, default: null },
     s3_bucket: { type: String, default: null },
-    cloudfront_url: { type: String, default: null }, // For CDN access
+    cloudfront_url: { type: String, default: null }, 
     uploaded_at: { type: Date, default: null },
     upload_success: { type: Boolean, default: false },
+    bucket_type:{type: String, enum: ['raw', 'processed'],default: 'raw'},
   },
   { _id: false }
 );
@@ -22,10 +23,7 @@ const WholeSlideImageSchema = new mongoose.Schema(
     mime_type: { type: String, required: true },
     size_bytes: { type: Number, required: true },
     is_image_corrupted: { type: Boolean, default: false },
-    temp_file_path: { type: String, required: true },
-    converted_to_tiff: { type: Boolean, default: false },
-    tiff_file_path: { type: String, default: null },
-
+   
     // S3 Storage Information
     s3_storage: { type: S3StorageSchema, default: null },
   },
@@ -39,7 +37,6 @@ const CellavisionImageSchema = new mongoose.Schema(
     mime_type: { type: String, required: true },
     size_bytes: { type: Number, required: true },
     is_image_corrupted: { type: Boolean, default: false },
-    temp_file_path: { type: String, required: true },
 
     // S3 Storage Information
     s3_storage: { type: S3StorageSchema, default: null },
@@ -94,15 +91,18 @@ const UploadSchema = new mongoose.Schema({
   // Status tracking
   status: {
     type: String,
-    default: "processing",
+    default: "streaming_to_s3",
     enum: [
-      "processing",
-      "clean",
-      "failed",
-      "uploading_to_s3",
-      "uploaded_to_s3",
-      "ready_for_access",
-      "partially_uploaded",
+      "streaming_to_s3",           // 1Initial upload streaming to S3
+      "streamed_to_s3",           // Successfully streamed to raw-bucket           //  ClamAV scanning in progress
+      "virus_clean",              //  Virus scan passed
+      "virus_infected",           // Virus scan failed
+      "processing_scenes",        // libvips processing scenes/channels
+      "generating_tiles",         //  Converting to .dzi tiles
+      "uploading_tiles",          //  Uploading tiles to processed-bucket
+      "ready_for_viewer",         // Ready for OpenSeadragon viewer
+      "failed",                   //  Any stage failed
+      "partially_processed", 
     ],
   },
 

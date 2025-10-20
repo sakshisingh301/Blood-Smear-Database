@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import UCDavisNavbar from '../Component/UCDavisNavbar';
 import './UploadedContentPage.css';
-import UTIF from 'utif';
 
 const UploadedContentPage = () => {
   const navigate = useNavigate();
@@ -25,20 +24,33 @@ const UploadedContentPage = () => {
     if (!apiData) return null;
 
     console.log('🔍 API Data:', apiData);
-    // Helper function to get proper CloudFront URL
+    console.log('🖼️ Whole Slide PNG URL:', apiData.whole_slide_image?.s3_storage?.png_url);
+    
+    // Helper function to get proper image URL
     const getImageUrl = (s3Storage) => {
       if (!s3Storage) return null;
       
-      // Prioritize CloudFront URL for better performance
+      // PRIORITY 1: Use pre-converted PNG URL if available (from blob conversion)
+      if (s3Storage.png_url) {
+        console.log('✅ Using pre-converted PNG:', s3Storage.png_url);
+        return s3Storage.png_url;
+      }
+      
+      // PRIORITY 2: Use CloudFront URL for better performance
       if (s3Storage.cloudfront_url) {
-        // Add https:// if missing
         const cloudfrontUrl = s3Storage.cloudfront_url.startsWith('http') 
           ? s3Storage.cloudfront_url 
           : `https://${s3Storage.cloudfront_url}`;
+        console.log('⚠️ Using CloudFront URL:', cloudfrontUrl);
         return cloudfrontUrl;
       }
       
-      // Fallback to S3 URL
+      // PRIORITY 3: Fallback to S3 URL
+      if (s3Storage.s3_url) {
+        console.log('⚠️ Using S3 URL:', s3Storage.s3_url);
+        return s3Storage.s3_url;
+      }
+      
       return null;
     };
     
@@ -72,7 +84,9 @@ const UploadedContentPage = () => {
         file_size: `${(apiData.whole_slide_image?.size_bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`,
         resolution: 'Unknown',
         s3_url: apiData.whole_slide_image?.s3_storage?.s3_url,
-        cloudfront_url: apiData.whole_slide_image?.s3_storage?.cloudfront_url
+        cloudfront_url: apiData.whole_slide_image?.s3_storage?.cloudfront_url,
+        png_url: apiData.whole_slide_image?.s3_storage?.png_url,
+        original_tiff_url: apiData.whole_slide_image?.s3_storage?.original_tiff_url
       },
       cellavision_images: apiData.cellavision_images ? Object.entries(apiData.cellavision_images).reduce((acc, [cellType, images]) => {
         acc[cellType.toLowerCase()] = images.map(img => ({
@@ -81,7 +95,9 @@ const UploadedContentPage = () => {
           status: img.s3_storage?.upload_success ? 'completed' : 'failed',
           cell_count: 1, // Default value
           s3_url: img.s3_storage?.s3_url,
-          cloudfront_url: img.s3_storage?.cloudfront_url
+          cloudfront_url: img.s3_storage?.cloudfront_url,
+          png_url: img.s3_storage?.png_url,
+          original_tiff_url: img.s3_storage?.original_tiff_url
         }));
         return acc;
       }, {}) : {},
@@ -119,6 +135,37 @@ const UploadedContentPage = () => {
   // console.log('�� Whole Slide:', apiData?.whole_slide_image);
 
   const transformedApiData = transformApiData(apiData);
+  
+  // 🖼️ Print PNG URLs for testing in browser
+  if (transformedApiData?.whole_slide_image?.png_url) {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🎨 WHOLE SLIDE PNG URL (Copy & Test in Browser):');
+    console.log(transformedApiData.whole_slide_image.png_url);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }
+  
+  if (transformedApiData?.cellavision_images) {
+    const cellavisionPngs = [];
+    Object.entries(transformedApiData.cellavision_images).forEach(([cellType, images]) => {
+      if (Array.isArray(images)) {
+        images.forEach((img, idx) => {
+          if (img.png_url) {
+            cellavisionPngs.push({ cellType, index: idx, url: img.png_url, filename: img.filename });
+          }
+        });
+      }
+    });
+    
+    if (cellavisionPngs.length > 0) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🎨 CELLAVISION PNG URLs (Copy & Test in Browser):');
+      cellavisionPngs.forEach((png, i) => {
+        console.log(`${i + 1}. [${png.cellType}] ${png.filename}:`);
+        console.log(png.url);
+      });
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
+  }
   // console.log('✅ Transformed Data:', transformedApiData);
   // console.log('✅ Transformed Cellavision:', transformedApiData?.cellavision_images);
   const jobData = editedData || transformedApiData;
@@ -242,126 +289,6 @@ const UploadedContentPage = () => {
       document.removeEventListener('keydown', handleEscapeKey);
     };
   }, [fullscreenImage]);
-
-  // Updated TiffImage component using UTIF
-  const TiffImage = ({ url, alt, onClick, className }) => {
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
-    const [pngUrl, setPngUrl] = useState(null);
-
-    useEffect(() => {
-      // console.log('🖼️ TiffImage received URL:', url);
-      
-      if (!url) {
-        console.error('❌ No URL provided to TiffImage');
-        setError(true);
-        setLoading(false);
-        return;
-      }
-
-      // Check if it's a TIFF file
-      const isTiff = url.toLowerCase().endsWith('.tiff') || url.toLowerCase().endsWith('.tif');
-      
-      if (!isTiff) {
-        setPngUrl(url);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      
-      // Fetch TIFF file
-      fetch(url)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.arrayBuffer();
-        })
-        .then(buffer => {
-          // Decode TIFF
-          const ifds = UTIF.decode(buffer);
-          UTIF.decodeImage(buffer, ifds[0]);
-          
-          // Get image data
-          const rgba = UTIF.toRGBA8(ifds[0]);
-          
-          // Create canvas
-          const canvas = document.createElement('canvas');
-          canvas.width = ifds[0].width;
-          canvas.height = ifds[0].height;
-          const ctx = canvas.getContext('2d');
-          
-          // Create ImageData
-          const imageData = new ImageData(
-            new Uint8ClampedArray(rgba),
-            ifds[0].width,
-            ifds[0].height
-          );
-          
-          ctx.putImageData(imageData, 0, 0);
-          
-          // Convert canvas to blob
-          canvas.toBlob((blob) => {
-            const pngDataUrl = URL.createObjectURL(blob);
-            setPngUrl(pngDataUrl);
-            setLoading(false);
-          }, 'image/png', 1.0);
-        })
-        .catch(err => {
-          console.error('TIFF conversion error:', err);
-          setError(true);
-          setLoading(false);
-        });
-
-      // Cleanup
-      return () => {
-        if (pngUrl && pngUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(pngUrl);
-        }
-      };
-    }, [url]);
-
-    if (loading) {
-      return (
-        <div className="tiff-loading">
-          <div className="spinner"></div>
-          <p>Converting TIFF to PNG...</p>
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div className="tiff-error">
-          <p>❌ Failed to load image</p>
-          <p className="error-details">Unable to convert TIFF file</p>
-          <a 
-            href={url} 
-            download 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="download-original-btn"
-          >
-            📥 Download Original File
-          </a>
-        </div>
-      );
-    }
-
-    return (
-      <img 
-        src={pngUrl} 
-        alt={alt} 
-        onClick={onClick} 
-        className={className}
-        onError={() => {
-          console.error('Image failed to load:', pngUrl);
-          setError(true);
-        }}
-      />
-    );
-  };
 
   if (!jobData) {
     return (
@@ -713,8 +640,8 @@ const UploadedContentPage = () => {
               <h4>Whole Slide Image</h4>
               <div className="image-card">
                 <div className="image-preview">
-                  <TiffImage 
-                    url={jobData.whole_slide_image.url} 
+                  <img 
+                    src={jobData.whole_slide_image.url} 
                     alt={jobData.whole_slide_image.filename}
                     onClick={(e) => handleImageClick(jobData.whole_slide_image, e)}
                     className="clickable-image"
@@ -760,8 +687,8 @@ const UploadedContentPage = () => {
                     {Array.isArray(images) ? images.map((imageData, index) => (
                       <div key={index} className="image-card">
                         <div className="image-preview">
-                          <TiffImage 
-                            url={imageData.url} 
+                          <img 
+                            src={imageData.url} 
                             alt={imageData.filename}
                             onClick={(e) => handleImageClick(imageData, e)}
                             className="clickable-image"
@@ -787,8 +714,8 @@ const UploadedContentPage = () => {
                     )) : (
                       <div className="image-card">
                         <div className="image-preview">
-                          <TiffImage 
-                            url={images.url} 
+                          <img 
+                            src={images.url} 
                             alt={images.filename}
                             onClick={(e) => handleImageClick(images, e)}
                             className="clickable-image"
@@ -824,8 +751,8 @@ const UploadedContentPage = () => {
               <button className="close-fullscreen-btn" onClick={closeFullscreenImage}>×</button>
             </div>
             <div className="fullscreen-image-content">
-              <TiffImage 
-                url={fullscreenImage.url} 
+              <img 
+                src={fullscreenImage.url} 
                 alt={fullscreenImage.filename}
                 className="fullscreen-image"
               />

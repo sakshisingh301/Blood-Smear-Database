@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import UCDavisNavbar from '../Component/UCDavisNavbar';
 import './AdminUploadPage.css';
+import { convertUploadDataTiffsToPng } from '../util/tiffConverter';
+import UTIF from 'utif'; 
+import { convertTiffToPng } from '../util/tiffConverter';
 
 const AdminUploadPage = () => {
   const navigate = useNavigate();
@@ -352,23 +355,37 @@ const AdminUploadPage = () => {
                   console.log("Processing complete! S3 data:", uploadData.whole_slide_image?.s3_storage);
                   clearInterval(pollInterval);
                   
-                  // Save the upload data to localStorage for recent uploads page
-                  const newUpload = {
-                    id: job_id,
-                    timestamp: new Date().toISOString(),
-                    specimen: uploadData.common_name || 'Unknown Specimen',
-                    scientific_name: uploadData.scientific_name,
-                    type: uploadData.whole_slide_image ? 'Full Slide + Cellavision' : 'Cellavision Only',
-                    status: uploadData.status,
-                    contributor: uploadData.contributor,
-                    collected_at: uploadData.collected_at,
-                    source: uploadData.source,
-                    uploadData: uploadData // Store the complete data with S3 info
-                  };
-                  //convert url to png
-                  
+                 
 
-                  console.log("new upload after getting result after putting job id ",newUpload)
+// Convert TIFF URLs to PNG blobs
+console.log("🔄 Starting TIFF to PNG conversion...");
+const convertedUploadData = await convertUploadDataTiffsToPng(uploadData);
+console.log("✅ new upload after converting url to png", convertedUploadData);
+
+// Save the upload data with PNG URLs to localStorage
+const newUpload = {
+  id: job_id,
+  timestamp: new Date().toISOString(),
+  specimen: convertedUploadData.common_name || 'Unknown Specimen',
+  scientific_name: convertedUploadData.scientific_name,
+  type: convertedUploadData.whole_slide_image ? 'Full Slide + Cellavision' : 'Cellavision Only',
+  status: convertedUploadData.status,
+  contributor: convertedUploadData.contributor,
+  collected_at: convertedUploadData.collected_at,
+  source: convertedUploadData.source,
+  uploadData: convertedUploadData // This now has png_url fields!
+};
+
+
+                  
+// Convert specific CloudFront URL to PNG if needed
+if (uploadData.whole_slide_image?.s3_storage?.cloudfront_url) {
+  const cloudfrontUrl = uploadData.whole_slide_image.s3_storage.cloudfront_url;
+  console.log("🔄 Converting CloudFront URL to PNG:", cloudfrontUrl);
+  const pngUrl = await convertTiffToPng(cloudfrontUrl);
+  console.log("✅ Converted PNG URL:", pngUrl);
+  // Use pngUrl as needed
+}
                   
                   // Add to recent uploads
                   const updatedUploads = [newUpload, ...recentUploads.slice(0, 4)]; // Keep last 5 uploads

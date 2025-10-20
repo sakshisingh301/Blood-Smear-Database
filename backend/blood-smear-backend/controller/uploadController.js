@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const UploadMetadata = require("../models/UploadMetadata.js");
 const { sendJobToQueue } = require("../Kafka/KafkaClient");
 const { randomUUID } = require("crypto");
+const { streamToRawBucket, generateS3Key } = require("../utility/S3Upload");
 
 const UPLOAD_ROOT = path.join(__dirname, "..", "uploads");
 
@@ -32,14 +33,15 @@ exports.uploadImage = async (req, res) => {
       source,
       approved,
       user_role,
-
     } = metadata;
 
-    //get whole slide image
+    const job_id = randomUUID();
+   
     const wholeSlide = req.files.find((f) => f.fieldname === "whole_slide");
-   //allowed image types
+ 
     const allowedMimeTypes = ['image/tiff', 'image/jpeg', 'image/png', 'image/x-svs','image/jpg','application/octet-stream'];
-    //check the format of the whole slide image
+    
+    // Check the format of the whole slide image
     if(wholeSlide){
       if (!allowedMimeTypes.includes(wholeSlide.mimetype)) {
         return res.status(400).json({ 
@@ -49,104 +51,57 @@ exports.uploadImage = async (req, res) => {
       }
     }
     
-console.log("cellavision images.....")
-
-
-// Validate cellavision image format for each file
-// for (const image of cellavisionFiles) {
-//   if (image.fieldname.startsWith("cellavision")) {
-//     if (!allowedMimeTypes.includes(image.mimetype)) {
-//       return res.status(400).json({ 
-//         message: `Invalid cellavision file type: ${image.originalname}`,
-//         receivedType: image.mimetype 
-//       });
-//     }
-//   }
-// }
-// console.log("cellavision imagesprocessing")
-// console.log("req.files:", req.files.map(f => ({ fieldname: f.fieldname, originalname: f.originalname })));
-// console.log("req.body keys:", Object.keys(req.body));
-// console.log("req.body values:", Object.entries(req.body).filter(([key, value]) => key.includes('cell_type')));
-
-    if (
-      !common_name ||
-      !user_email ||
-      !approved 
-    ) {
-      return res.status(400).json({ message: "Missing required fields.Please fill all the required field" });
-    }
-
-    const job_id = uuidv4();
-    //create job directory
-    const jobDir = path.join(UPLOAD_ROOT, job_id);
-    //create whole slide directory
-    const slideDir = path.join(jobDir, "whole_slide");
-    //create cellavision directory
-    const cellavisionDir = path.join(jobDir, "cellavision");
-
-    // Create folders for whole slide and cellavision
-    await fs.mkdir(slideDir, { recursive: true });
-    await fs.mkdir(cellavisionDir, { recursive: true });
-    let slidePath = null;
-
+    let fullSlideStream = null;
     if(wholeSlide){
-    // Save whole slide image
-     slidePath = path.join(slideDir, wholeSlide.originalname);
-    await fs.writeFile(slidePath, wholeSlide.buffer);
+      const s3Key = generateS3Key(job_id, wholeSlide.originalname, "whole_slide");
+      fullSlideStream = await streamToRawBucket(wholeSlide.buffer, s3Key, wholeSlide.originalname, wholeSlide.mimetype);
+      if(!fullSlideStream.success){
+        return res.status(500).json({
+          message: "Failed to upload the whole slide image to the raw bucket",
+          error: fullSlideStream.error
+        });
+      }
     }
-
-    const cellavisionImages = {};
-    const savedImagePaths = {
-      whole_slide_image_path: slidePath,
-      cellavision_image_paths: {},
-    };
-
-    //process cellavision images
-    for (const image of req.files) {
-      if (!image.fieldname.startsWith("cellavision")) continue;
-     
-      const match = image.fieldname.match(/^cellavision\[(\d+)\]$/);
-      if (!match) continue;
-
-      const index = parseInt(match[1]);
+    
+    const cellavisionFiles = req.files.filter((f) => f.fieldname.startsWith("cellavision"));
+    const cellTypes = req.body.cell_type || [];
+    let cellavisionUploadResults = []; // Array to store all upload results
+   
+    if(cellavisionFiles.length > 0){
+      console.log("Processing cellavision images:", cellavisionFiles.length);
       
-      // Handle both array format and indexed format
-      let cellType;
-      if (Array.isArray(req.body.cell_type)) {
-        cellType = req.body.cell_type[index];
-      } else {
-        cellType = req.body[`cell_type[${index}]`];
+      // Validate that cellTypes array matches cellavisionFiles length
+      if (cellTypes.length !== cellavisionFiles.length) {
+        console.warn(`Mismatch: ${cellavisionFiles.length} cellavision files but ${cellTypes.length} cell types provided`);
       }
       
-      console.log(`Index: ${index}, cellType: "${cellType}"`);
-      if (!cellType) {
-        console.log(`Skipping - no cell type for index ${index}`);
-        continue;
+      for(let i = 0; i < cellavisionFiles.length; i++){
+        const cellavisionFile = cellavisionFiles[i];
+        const cellType = cellTypes[i] || "Unknown";
+        
+        const s3Key = generateS3Key(job_id, cellavisionFile.originalname, "cellavision", cellType);
+        console.log(`Uploading ${cellType} image:`, s3Key);
+        
+        const uploadResult = await streamToRawBucket(
+          cellavisionFile.buffer, 
+          s3Key, 
+          cellavisionFile.originalname, 
+          cellavisionFile.mimetype
+        );
+        
+        // Store the result with file and cell type info
+        cellavisionUploadResults.push({
+          file: cellavisionFile,
+          cellType: cellType,
+          uploadResult: uploadResult
+        });
       }
-
-      // Create folder for each cell type if not exists
-      const cellTypeDir = path.join(cellavisionDir, cellType);
-      await fs.mkdir(cellTypeDir, { recursive: true });
-
-      const savePath = path.join(cellTypeDir, image.originalname);
-      await fs.writeFile(savePath, image.buffer);
-
-      if (!cellavisionImages[cellType]) {
-        cellavisionImages[cellType] = [];
-        savedImagePaths.cellavision_image_paths[cellType] = [];
-      }
-
-      cellavisionImages[cellType].push({
-        original_filename: image.originalname,
-        mime_type: image.mimetype,
-        size_bytes: image.size,
-        temp_file_path: savePath,
-      });
-
-      savedImagePaths.cellavision_image_paths[cellType].push(savePath);
     }
-
-    const response = {
+    
+    console.log("cellavisionUploadResults----->:", cellavisionUploadResults);
+    
+    const uploadMetadata = {
+      job_id,
       common_name,
       scientific_name,
       taxonomy,
@@ -163,27 +118,89 @@ console.log("cellavision images.....")
       custom_scanner_type,
       magnification,
       contributor,
-      collected_at,
+      collected_at: new Date(collected_at),
       source,
       approved,
       user_role,
-      whole_slide_image: wholeSlide ? {
+      status: "streaming_to_s3",
+      s3_upload_summary: {
+        total_files: (wholeSlide ? 1 : 0) + cellavisionFiles.length,
+        uploaded_files: 0, // Will be updated after successful uploads
+        failed_files: 0,
+        upload_started_at: new Date(),
+        total_size_bytes: 0
+      },
+      // Initialize cellavision_images as a Map
+      cellavision_images: new Map()
+    };
+    
+    if(wholeSlide) {
+      uploadMetadata.whole_slide_image = {
         original_filename: wholeSlide.originalname,
         mime_type: wholeSlide.mimetype,
         size_bytes: wholeSlide.size,
-        temp_file_path: slidePath,
-      }:null,
-      cellavision_images: cellavisionImages,
-      job_id,
-      ...savedImagePaths, // contains full paths to saved files
-    };
+        s3_storage: {
+          s3_url: fullSlideStream.s3_url,
+          s3_key: fullSlideStream.s3_key,
+          s3_etag: fullSlideStream.s3_etag,
+          s3_bucket: fullSlideStream.s3_bucket,
+          cloudfront_url: fullSlideStream.cloudfront_url,
+          uploaded_at: fullSlideStream.uploaded_at,
+          upload_success: fullSlideStream.upload_success,
+          bucket_type: 'raw',
+        }
+      };
+      uploadMetadata.s3_upload_summary.uploaded_files += 1;
+      uploadMetadata.s3_upload_summary.total_size_bytes += wholeSlide.size;
+    }
 
-    console.log("response before the kafka",response)
-
-    await UploadMetadata.create(response);
-    await sendJobToQueue(response.job_id);
-    console.log("Job sent to Kafka queue:", job_id);
-
+    // Process cellavision upload results
+    if (cellavisionUploadResults.length > 0) {
+      for (const { file: cellavisionFile, cellType, uploadResult } of cellavisionUploadResults) {
+        if (uploadResult.success) {
+          const cellavisionImageData = {
+            original_filename: cellavisionFile.originalname,
+            mime_type: cellavisionFile.mimetype,
+            size_bytes: cellavisionFile.size,
+            s3_storage: {
+              s3_url: uploadResult.s3_url,
+              s3_key: uploadResult.s3_key,
+              s3_etag: uploadResult.s3_etag,
+              s3_bucket: uploadResult.s3_bucket,
+              cloudfront_url: uploadResult.cloudfront_url,
+              uploaded_at: uploadResult.uploaded_at,
+              upload_success: uploadResult.upload_success,
+              bucket_type: 'raw'
+            }
+          };
+          
+          // Add to cellavision_images Map
+          if (!uploadMetadata.cellavision_images.has(cellType)) {
+            uploadMetadata.cellavision_images.set(cellType, []);
+          }
+          uploadMetadata.cellavision_images.get(cellType).push(cellavisionImageData);
+          
+          uploadMetadata.s3_upload_summary.uploaded_files += 1;
+          uploadMetadata.s3_upload_summary.total_size_bytes += cellavisionFile.size;
+        } else {
+          uploadMetadata.s3_upload_summary.failed_files += 1;
+          console.error(`Failed to upload cellavision file ${cellavisionFile.originalname}:`, uploadResult.error);
+        }
+      }
+    }
+     // Update status to "streamed_to_s3" if all uploads were successful
+     if (uploadMetadata.s3_upload_summary.failed_files === 0 && uploadMetadata.s3_upload_summary.uploaded_files > 0) {
+      uploadMetadata.status = "streamed_to_s3";
+      uploadMetadata.s3_upload_summary.upload_completed_at = new Date();
+    } else if (uploadMetadata.s3_upload_summary.failed_files > 0) {
+      uploadMetadata.status = "failed";
+      uploadMetadata.error_message = "Some files failed to upload to S3";
+    }
+    
+    
+    await UploadMetadata.create(uploadMetadata);
+    await sendJobToQueue(job_id);
+   
     res.status(200).json({
       status: "received",
       message: "Upload received and will be processed.",
