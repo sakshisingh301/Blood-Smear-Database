@@ -1,6 +1,7 @@
 const path = require("path");
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-const AWS = require("aws-sdk");
+const AWS= require("@aws-sdk/client-s3");
+
 const fs = require("fs");
 const UploadMetadata = require("../models/UploadMetadata.js");
 const { Readable } = require("stream");

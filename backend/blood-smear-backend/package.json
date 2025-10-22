@@ -13,7 +13,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "aws-sdk": "^2.1692.0",
+    "@aws-sdk/client-s3": "^3.914.0",
+    "@aws-sdk/lib-storage": "^3.914.0",
     "body-parser": "^2.2.0",
     "clamscan": "^2.4.0",
     "cors": "^2.8.5",
@@ -22,6 +23,7 @@
     "kafkajs": "^2.2.4",
     "mongoose": "^8.16.3",
     "multer": "^2.0.2",
+    "multer-s3": "^3.0.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

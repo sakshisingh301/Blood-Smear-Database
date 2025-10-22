@@ -7,6 +7,7 @@ const path = require("path");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const { streamToRawBucket, getRawFileStream } = require("../utility/S3Upload.js");
+const { checkIfTheImagesAreMultiSceneForWholeSlide,getFileStreamFromS3 } = require("../utility/dziProcessor.js");
 
 // 1. Connect to MongoDB
 mongoose.connect(
@@ -75,6 +76,16 @@ const consumer = kafka.consumer({ groupId: "image-processing-group" });
     //process the whole slide image
     if(job.whole_slide_image)
     {
+    const s3Key = job.whole_slide_image.s3_storage.s3_key;
+    const mimeType = job.whole_slide_image.mime_type;
+    console.log(`[${job_id}] Starting to check if the whole slide image is multi scene`);
+    const isMultiScene = await checkIfTheImagesAreMultiSceneForWholeSlide(s3Key);
+    console.log(`[${job_id}] Is multi scene:`, isMultiScene);
+    
+
+
+    console.log(`[${job_id}] Converting whole slide → DZI`);
+    
       
     }
 

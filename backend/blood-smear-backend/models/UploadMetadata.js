@@ -43,6 +43,45 @@ const CellavisionImageSchema = new mongoose.Schema(
   },
   { _id: false }
 );
+const ZStackSchema = new mongoose.Schema(
+  {
+    z_index: Number,
+    dzi_url: String,
+    pyramid_levels: Number,
+    tile_size: { type: Number, default: 256 },
+  },
+  { _id: false }
+);
+
+const ChannelSchema = new mongoose.Schema(
+  {
+    channel_index: Number,
+    channel_name: String,
+    z_stacks: [ZStackSchema],
+  },
+  { _id: false }
+);
+
+
+
+const SceneSchema = new mongoose.Schema(
+  {
+    scene_index: Number,
+    scene_name: String,
+    channels: [ChannelSchema],
+  },
+  { _id: false }
+);
+
+const CellavisionDziSchema = new mongoose.Schema(
+  {
+    cell_filename: String,
+    cell_type: String,
+    dzi_url: String,
+    tile_size: { type: Number, default: 256 },
+  },
+  { _id: false }
+);
 
 // Main Upload Schema
 const UploadSchema = new mongoose.Schema({
@@ -79,6 +118,14 @@ const UploadSchema = new mongoose.Schema({
     type: Map,
     of: [CellavisionImageSchema],
   },
+  dzi_outputs: {
+    whole_slide: [SceneSchema], // Multi-scene slide results
+    cellavision: {
+      type: Map,
+      of: [CellavisionDziSchema], // One per cell type (e.g., Neutrophil, Lymphocyte)
+    },
+  },
+
 
   // Job and user tracking
   user_id: {
@@ -124,8 +171,7 @@ const UploadSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 
-  // Legacy field (kept for backward compatibility)
-  image_urls: [String], // Deprecated - use s3_storage.s3_url instead
+  
 });
 
 // Update the updated_at field before saving
