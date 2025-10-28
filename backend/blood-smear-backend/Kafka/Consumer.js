@@ -7,7 +7,7 @@ const path = require("path");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const { streamToRawBucket, getRawFileStream } = require("../utility/S3Upload.js");
-const { checkIfTheImagesAreMultiSceneForWholeSlide,getFileStreamFromS3 } = require("../utility/dziProcessor.js");
+const { checkIfTheImagesAreMultiSceneForWholeSlide,convertToDZI,streamFullSlideImageToLocalTempFile } = require("../utility/dziProcessor.js");
 
 // 1. Connect to MongoDB
 mongoose.connect(
@@ -79,13 +79,45 @@ const consumer = kafka.consumer({ groupId: "image-processing-group" });
     const s3Key = job.whole_slide_image.s3_storage.s3_key;
     const mimeType = job.whole_slide_image.mime_type;
     console.log(`[${job_id}] Starting to check if the whole slide image is multi scene`);
-    const isMultiScene = await checkIfTheImagesAreMultiSceneForWholeSlide(s3Key);
-    console.log(`[${job_id}] Is multi scene:`, isMultiScene);
-    
+    const streamImagesToLocalTempFile = await streamFullSlideImageToLocalTempFile(s3Key);
+    const isMultiScene = await checkIfTheImagesAreMultiSceneForWholeSlide(streamImagesToLocalTempFile);
+    const startTime = Date.now(); // Track processing time
+const dziOutput = await convertToDZI(streamImagesToLocalTempFile, s3Key, job_id);
 
-
-    console.log(`[${job_id}] Converting whole slide → DZI`);
-    
+if (dziOutput) {
+  const processingTime = Date.now() - startTime;
+  const dziId = path.parse(s3Key).name; // Extract filename from s3Key
+  
+  await UploadMetadata.findOneAndUpdate(
+    { job_id: job_id },
+    {
+      $push: {
+        'dzi_outputs.whole_slide': {
+          scene_number: 0,
+          scene_name: 'scene0',
+          z_level: 0,
+          channel: 0,
+          dzi_url: dziOutput.dzi_url,              
+          pyramid_levels: dziOutput.pyramid_levels, 
+          tile_count: dziOutput.tile_count,         
+          tile_size: 256,
+          tile_format: 'jpeg',
+          tile_overlap: 0,
+          image_width: isMultiScene.width,        
+          image_height: isMultiScene.height,        
+          s3_dzi_key: `uploads/${job_id}/full_slide_dzi/${dziId}/scene0_z0_c0.dzi`,
+          s3_tiles_prefix: `uploads/${job_id}/full_slide_dzi/${dziId}/`,
+          processing_status: 'completed',
+          processing_time_ms: processingTime,     
+          processed_at: new Date()
+        }
+      },
+      status: 'ready_for_viewer'
+    }
+  );
+  
+  console.log(`[${job_id}] ✅ Converted whole slide to DZI:`, dziOutput);
+}
       
     }
 

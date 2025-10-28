@@ -15,7 +15,6 @@ const S3StorageSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
 // Whole Slide Image Schema
 const WholeSlideImageSchema = new mongoose.Schema(
   {
@@ -28,6 +27,49 @@ const WholeSlideImageSchema = new mongoose.Schema(
     s3_storage: { type: S3StorageSchema, default: null },
   },
   { _id: false }
+);
+
+// Whole Slide Image Schema
+const WholeSlideDziSchema = new mongoose.Schema(
+  {
+    // Scene identification (for multi-scene images)
+    scene_number: { type: Number, default: 0 },
+    scene_name: { type: String, default: "scene0" },
+    z_level: { type: Number, default: 0 }, // Z-stack level
+    channel: { type: Number, default: 0 }, // Color channel
+    
+    // Main DZI URL (what frontend needs)
+    dzi_url: { type: String, required: true },
+    
+    // DZI Pyramid Information
+    pyramid_levels: { type: Number, required: true },
+    tile_count: { type: Number, required: true },
+    tile_size: { type: Number, default: 256 },
+    tile_format: { type: String, default: 'jpeg' },
+    tile_overlap: { type: Number, default: 0 },
+    
+    // Original Image Dimensions
+    image_width: { type: Number, required: true },
+    image_height: { type: Number, required: true },
+    
+    // S3 Storage Information for DZI file
+    s3_dzi_key: { type: String, required: true }, // S3 key for the .dzi file
+    s3_tiles_prefix: { type: String, required: true }, // Base path for tiles
+    s3_bucket: { type: String, default: process.env.S3_BUCKET_RAW },
+    
+    // Processing Metadata
+    processing_status: {
+      type: String,
+      enum: ['processing', 'completed', 'failed'],
+      default: 'completed'
+    },
+    processing_time_ms: { type: Number, default: 0 },
+    processed_at: { type: Date, default: Date.now },
+    
+    // Error tracking
+    error_message: { type: String, default: null }
+  },
+  { _id: false, timestamps: true }
 );
 
 // Cellavision Image Schema
@@ -43,35 +85,10 @@ const CellavisionImageSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-const ZStackSchema = new mongoose.Schema(
-  {
-    z_index: Number,
-    dzi_url: String,
-    pyramid_levels: Number,
-    tile_size: { type: Number, default: 256 },
-  },
-  { _id: false }
-);
-
-const ChannelSchema = new mongoose.Schema(
-  {
-    channel_index: Number,
-    channel_name: String,
-    z_stacks: [ZStackSchema],
-  },
-  { _id: false }
-);
 
 
 
-const SceneSchema = new mongoose.Schema(
-  {
-    scene_index: Number,
-    scene_name: String,
-    channels: [ChannelSchema],
-  },
-  { _id: false }
-);
+
 
 const CellavisionDziSchema = new mongoose.Schema(
   {
@@ -119,11 +136,12 @@ const UploadSchema = new mongoose.Schema({
     of: [CellavisionImageSchema],
   },
   dzi_outputs: {
-    whole_slide: [SceneSchema], // Multi-scene slide results
+    whole_slide: [WholeSlideDziSchema], // Multi-scene slide results
     cellavision: {
       type: Map,
       of: [CellavisionDziSchema], // One per cell type (e.g., Neutrophil, Lymphocyte)
     },
+    
   },
 
 
