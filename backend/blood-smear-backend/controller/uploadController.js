@@ -112,7 +112,16 @@ exports.uploadImage = async (req, res) => {
       
       for(let i = 0; i < cellavisionFiles.length; i++){
         const cellavisionFile = cellavisionFiles[i];
-        const cellType = cellTypes[i] || "Unknown";
+        
+        // Extract cell type from S3 key: uploads/{jobId}/cellavision/{cellType}/{filename}
+        let cellType = "Unknown";
+        if (cellavisionFile.key) {
+          const keyParts = cellavisionFile.key.split('/');
+          if (keyParts.length >= 4 && keyParts[2] === 'cellavision') {
+            cellType = keyParts[3]; // Extract cell type from S3 key
+          }
+        }
+        console.log(`[${job_id}] Cellavision image: ${cellavisionFile.originalname}, Cell Type: ${cellType}`);
         
         const cellavisionImageData = {
           original_filename: cellavisionFile.originalname,

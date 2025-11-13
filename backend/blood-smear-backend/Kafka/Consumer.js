@@ -4,10 +4,10 @@ const mongoose = require("mongoose");
 const { scanS3StreamForVirusStreaming } = require("../utility/virusScanner.js");
 const UploadMetadata = require("../models/UploadMetadata.js");
 const path = require("path");
-const util = require("util");
-const exec = util.promisify(require("child_process").exec);
-const { streamToRawBucket, getRawFileStream } = require("../utility/S3Upload.js");
 const { checkIfTheImagesAreMultiSceneForWholeSlide,convertToDZI,streamFullSlideImageToLocalTempFile } = require("../utility/dziProcessor.js");
+
+// CloudFront configuration
+const CLOUD_FRONT_DOMAIN_RAW = process.env.CLOUD_FRONT_DOMAIN_RAW || process.env.CLOUD_FRONT_DOMAIN;
 
 // 1. Connect to MongoDB
 mongoose.connect(
@@ -21,7 +21,14 @@ const kafka = new Kafka({
 });
 
 // 3. Create consumer in a group
-const consumer = kafka.consumer({ groupId: "image-processing-group" });
+
+const consumer = kafka.consumer({ 
+  groupId: "image-processing-group",
+  sessionTimeout: 600000,        // 10 minutes (matches maxPollInterval)
+  heartbeatInterval: 10000,      // 10 seconds
+  maxPollInterval: 600000,       // 10 minutes (600,000ms)
+  rebalanceTimeout: 60000,       // 1 minute
+});
 
 // 4. Job processing logic
   async function processJob(job_id){
@@ -35,7 +42,6 @@ const consumer = kafka.consumer({ groupId: "image-processing-group" });
       throw new Error("Job not found");
     }
    
-    
     //create a step function divide the larger whole slide images into and call the lambda function which executes the clamAV scan
 
     //check the virus scan for cellavision images, use existing ClamAV function
@@ -70,6 +76,38 @@ const consumer = kafka.consumer({ groupId: "image-processing-group" });
       
       console.log(`[${job_id}] All cellavision images passed virus scan`);
     }
+    
+    // Update CloudFront URLs for cellavision images
+    if (job.cellavision_images && job.cellavision_images.size > 0) {
+      console.log(`[${job_id}] Updating CloudFront URLs for cellavision images...`);
+      
+      for (const [cellType, images] of job.cellavision_images.entries()) {
+        for (let i = 0; i < images.length; i++) {
+          const image = images[i];
+          if (image.s3_storage?.s3_key && !image.s3_storage?.cloudfront_url) {
+            // Generate CloudFront URL from s3_key
+            const cloudfrontUrl = `${CLOUD_FRONT_DOMAIN_RAW}/${image.s3_storage.s3_key}`;
+            
+            // Update the specific image in the array
+            await UploadMetadata.updateOne(
+              { job_id: job_id },
+              { 
+                $set: { 
+                  [`cellavision_images.${cellType}.${i}.s3_storage.cloudfront_url`]: cloudfrontUrl 
+                } 
+              }
+            );
+            
+            console.log(`[${job_id}] Updated CloudFront URL for ${cellType}[${i}]: ${image.original_filename}`);
+          }
+        }
+      }
+      
+      console.log(`[${job_id}] ✅ CloudFront URLs updated for all cellavision images`);
+    }
+    
+    
+    
     //update status to virus_clean
      await UploadMetadata.updateOne({job_id: job_id}, {status: "virus_clean"});
 
@@ -82,9 +120,9 @@ const consumer = kafka.consumer({ groupId: "image-processing-group" });
     const streamImagesToLocalTempFile = await streamFullSlideImageToLocalTempFile(s3Key);
     const isMultiScene = await checkIfTheImagesAreMultiSceneForWholeSlide(streamImagesToLocalTempFile);
     const startTime = Date.now(); // Track processing time
-const dziOutput = await convertToDZI(streamImagesToLocalTempFile, s3Key, job_id);
+    const dziOutput = await convertToDZI(streamImagesToLocalTempFile, s3Key, job_id);
 
-if (dziOutput) {
+   if (dziOutput) {
   const processingTime = Date.now() - startTime;
   const dziId = path.parse(s3Key).name; // Extract filename from s3Key
   
@@ -111,35 +149,33 @@ if (dziOutput) {
           processing_time_ms: processingTime,     
           processed_at: new Date()
         }
+       
       },
       status: 'ready_for_viewer'
     }
   );
+  // Update CloudFront URL for whole slide image
+  if (job.whole_slide_image?.s3_storage?.s3_key && !job.whole_slide_image.s3_storage?.cloudfront_url) {
+    const cloudfrontUrl = `${CLOUD_FRONT_DOMAIN_RAW}/${dziOutput.dzi_url}`;
+    await UploadMetadata.updateOne(
+      { job_id: job_id },
+      { $set: { 'whole_slide_image.s3_storage.cloudfront_url': cloudfrontUrl } }
+    );
+    console.log(`[${job_id}] ✅ CloudFront URL updated for whole slide image`);
+  }
+  
   
   console.log(`[${job_id}] ✅ Converted whole slide to DZI:`, dziOutput);
 }
-      
-    }
-
-
   }
-
+  }
     
 
 
-
-async function isFileClean(filePath) {
-  const { isInfected, viruses } = await scanFileForVirus(filePath);
-  if (isInfected) {
-    console.warn(`Detected: ${viruses.join(", ")}`);
-    return false;
-  }
-  return true;
-}
 // 5. Main loop: listen for jobs and process
 async function run() {
   await consumer.connect();
-  await consumer.subscribe({ topic: "image-processing", fromBeginning: true });
+  await consumer.subscribe({ topic: "image-processing", fromBeginning: false });
 
   await consumer.run({
     
