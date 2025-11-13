@@ -70,7 +70,9 @@ exports.getUploadImage = async (req, res) => {
           is_image_corrupted: upload.is_image_corrupted,
           s3_upload_summary: upload.s3_upload_summary,
           whole_slide_image: upload.whole_slide_image,
-          cellavision_images: cellavisionInfo
+          cellavision_images: cellavisionInfo,
+          dzi_outputs: upload.dzi_outputs
+        
         };
     
         res.status(200).json({
