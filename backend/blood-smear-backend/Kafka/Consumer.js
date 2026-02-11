@@ -143,8 +143,8 @@ const consumer = kafka.consumer({
           tile_overlap: 0,
           image_width: isMultiScene.width,        
           image_height: isMultiScene.height,        
-          s3_dzi_key: `uploads/${job_id}/full_slide_dzi/${dziId}/scene0_z0_c0.dzi`,
-          s3_tiles_prefix: `uploads/${job_id}/full_slide_dzi/${dziId}/`,
+          s3_dzi_key: `processed/${job_id}/full_slide_dzi/${dziId}/scene0_z0_c0.dzi`,
+          s3_tiles_prefix: `processed/${job_id}/full_slide_dzi/${dziId}/`,
           processing_status: 'completed',
           processing_time_ms: processingTime,     
           processed_at: new Date()
@@ -156,7 +156,10 @@ const consumer = kafka.consumer({
   );
   // Update CloudFront URL for whole slide image
   if (job.whole_slide_image?.s3_storage?.s3_key && !job.whole_slide_image.s3_storage?.cloudfront_url) {
-    const cloudfrontUrl = `${CLOUD_FRONT_DOMAIN_RAW}/${dziOutput.dzi_url}`;
+    // FIX: dziOutput.dzi_url already contains full URL, extract just the S3 key
+    // dziOutput.dzi_url format: https://domain.com/uploads/job_id/full_slide_dzi/...
+    const dziUrlPath = dziOutput.dzi_url.replace(/^https?:\/\/[^\/]+/, ''); // Remove domain, keep path
+    const cloudfrontUrl = `${CLOUD_FRONT_DOMAIN_RAW}${dziUrlPath}`;
     await UploadMetadata.updateOne(
       { job_id: job_id },
       { $set: { 'whole_slide_image.s3_storage.cloudfront_url': cloudfrontUrl } }
@@ -164,9 +167,12 @@ const consumer = kafka.consumer({
     console.log(`[${job_id}] ✅ CloudFront URL updated for whole slide image`);
   }
   
-  
   console.log(`[${job_id}] ✅ Converted whole slide to DZI:`, dziOutput);
 }
+  } else {
+    // No whole slide image, only cellavision images - mark as ready
+    await UploadMetadata.updateOne({job_id: job_id}, {status: "ready_for_viewer"});
+    console.log(`[${job_id}] ✅ Cellavision-only upload ready for viewer`);
   }
   }
     

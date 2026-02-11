@@ -165,3 +165,15 @@ exports.uploadImage = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+//optimisation 
+// focus on which part is taking time 
+//Queue deliervery - no
+//virus scan -no
+//download whole slide image from s3 - no
+// DZI Conversion (Sharp processing)                │
+// │    Time: ~3-4 minutes ← MAIN BOTTLENECK             │
+// │    - Generate 74,602 tiles                           │
+// │    - Upload tiles to S3  
+//Mongodb insertion - no
+//replace kafka with sqs

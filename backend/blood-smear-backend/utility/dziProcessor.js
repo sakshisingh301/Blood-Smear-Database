@@ -119,7 +119,7 @@ const outputDir = path.join(STORAGE_PATH, 'temp_dzi', `output_full_slide_${Date.
   
   // Upload .dzi file to RAW bucket
   const dziFileBuffer = await fs.readFile(`${dziPath}.dzi`);
-  const dziS3Key = `uploads/${job_id}/full_slide_dzi/${dziId}/scene0_z0_c0.dzi`;
+  const dziS3Key = `processed/${job_id}/full_slide_dzi/${dziId}/scene0_z0_c0.dzi`;
   
   await s3.send(new PutObjectCommand({
       Bucket: S3_BUCKET_RAW, 
@@ -154,7 +154,7 @@ const outputDir = path.join(STORAGE_PATH, 'temp_dzi', `output_full_slide_${Date.
           // Create upload task but don't await yet
           const uploadTask = async () => {
               const tileBuffer = await fs.readFile(path.join(levelPath, tile));
-              const tileS3Key = `processed/${dziId}/scene0_z0_c0_files/${level}/${tile}`;
+              const tileS3Key = `processed/${job_id}/full_slide_dzi/${dziId}/scene0_z0_c0_files/${level}/${tile}`;
               
               await s3.send(new PutObjectCommand({
                   Bucket: S3_BUCKET_RAW,  
