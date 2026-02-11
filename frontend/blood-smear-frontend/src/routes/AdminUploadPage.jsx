@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import UCDavisNavbar from '../Component/UCDavisNavbar';
 import './AdminUploadPage.css';
 import { convertUploadDataTiffsToPng } from '../util/tiffConverter';
 import UTIF from 'utif'; 
 import { convertTiffToPng } from '../util/tiffConverter';
+import WholeSlideViewer from '../Component/WholeSlideViewer';
 
 const AdminUploadPage = () => {
   const navigate = useNavigate();
   const [uploadType, setUploadType] = useState('fullSlide');
+  const [recentUploadsCount, setRecentUploadsCount] = useState(0);
 
   // Taxonomic classification data
   const phylumClassMapping = {
@@ -106,6 +108,11 @@ const AdminUploadPage = () => {
     const saved = localStorage.getItem('recentUploads');
     return saved ? JSON.parse(saved) : [];
   });
+
+  // Update count whenever recentUploads changes
+  useEffect(() => {
+    setRecentUploadsCount(recentUploads.length);
+  }, [recentUploads]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -340,71 +347,71 @@ const AdminUploadPage = () => {
                   job_id: job_id
                 });
                 
-                // Check if S3 upload is complete
+                // Check if S3 upload is complete and DZI is ready
                 const isS3UploadComplete = 
-                  uploadData.status === 'uploaded_to_s3' && 
-                  uploadData.whole_slide_image?.s3_storage?.upload_success;
+                  uploadData.status === 'ready_for_viewer' && 
+                  uploadData.dzi_outputs?.whole_slide?.length > 0;
+                
+                // Check if cellavision-only upload is complete (no whole slide)
+                const isCellavisionOnlyComplete = 
+                  uploadData.status === 'ready_for_viewer' && 
+                  !uploadData.whole_slide_image;
                 
                 // Also check if partially uploaded or failed
                 const isProcessingComplete = 
-                  uploadData.status === 'uploaded_to_s3' ||
+                  uploadData.status === 'ready_for_viewer' ||
                   uploadData.status === 'partially_uploaded' ||
                   uploadData.status === 'failed';
                 
-                if (isS3UploadComplete) {
-                  console.log("Processing complete! S3 data:", uploadData.whole_slide_image?.s3_storage);
+                if (isS3UploadComplete || isCellavisionOnlyComplete) {
+                  console.log("✅ Processing complete! DZI data:", uploadData.dzi_outputs);
                   clearInterval(pollInterval);
                   
-                 
-
-// Convert TIFF URLs to PNG blobs
-console.log("🔄 Starting TIFF to PNG conversion...");
-const convertedUploadData = await convertUploadDataTiffsToPng(uploadData);
-console.log("✅ new upload after converting url to png", convertedUploadData);
-
-// Save the upload data with PNG URLs to localStorage
-const newUpload = {
-  id: job_id,
-  timestamp: new Date().toISOString(),
-  specimen: convertedUploadData.common_name || 'Unknown Specimen',
-  scientific_name: convertedUploadData.scientific_name,
-  type: convertedUploadData.whole_slide_image ? 'Full Slide + Cellavision' : 'Cellavision Only',
-  status: convertedUploadData.status,
-  contributor: convertedUploadData.contributor,
-  collected_at: convertedUploadData.collected_at,
-  source: convertedUploadData.source,
-  uploadData: convertedUploadData // This now has png_url fields!
-};
-
-
+                  // Save the upload data with all DZI information
+                  const hasWholeSlide = !!uploadData.whole_slide_image;
+                  const hasCellavision = uploadData.cellavision_images && Object.keys(uploadData.cellavision_images).length > 0;
                   
-// Convert specific CloudFront URL to PNG if needed
-if (uploadData.whole_slide_image?.s3_storage?.cloudfront_url) {
-  const cloudfrontUrl = uploadData.whole_slide_image.s3_storage.cloudfront_url;
-  console.log("🔄 Converting CloudFront URL to PNG:", cloudfrontUrl);
-  const pngUrl = await convertTiffToPng(cloudfrontUrl);
-  console.log("✅ Converted PNG URL:", pngUrl);
-  // Use pngUrl as needed
-}
+                  let uploadType = 'Unknown';
+                  if (hasWholeSlide && hasCellavision) {
+                    uploadType = 'Full Slide + Cellavision';
+                  } else if (hasWholeSlide) {
+                    uploadType = 'Full Slide';
+                  } else if (hasCellavision) {
+                    uploadType = 'Cellavision';
+                  }
+                  
+                  const newUpload = {
+                    id: job_id,
+                    timestamp: new Date().toISOString(),
+                    specimen: uploadData.common_name || 'Unknown Specimen',
+                    scientific_name: uploadData.scientific_name,
+                    type: uploadType,
+                    status: uploadData.status,
+                    contributor: uploadData.contributor,
+                    collected_at: uploadData.collected_at,
+                    source: uploadData.source,
+                    uploadData: uploadData // Contains dzi_outputs and all data!
+                  };
+                  
+                  // Update job status with full data including uploadData for viewer
+                  setJobStatus({
+                    status: uploadData.status,
+                    message: '✅ Image ready for viewing!',
+                    job_id: job_id,
+                    uploadData: uploadData // Add this to access in JSX
+                  });
                   
                   // Add to recent uploads
                   const updatedUploads = [newUpload, ...recentUploads.slice(0, 4)]; // Keep last 5 uploads
                   setRecentUploads(updatedUploads);
                   localStorage.setItem('recentUploads', JSON.stringify(updatedUploads));
                   
+                  // Save to currentUploadData for other pages
+                  localStorage.setItem('currentUploadData', JSON.stringify(uploadData));
                   
-                  // Show success message and redirect
-                  if (uploadData.status === 'uploaded_to_s3') {
-                    alert('✅ Upload completed successfully! Files are now available on S3.');
-                  } else if (uploadData.status === 'partially_uploaded') {
-                    alert('⚠️ Upload partially completed. Some files may have failed.');
-                  } else if (uploadData.status === 'failed') {
-                    alert('❌ Upload processing failed. Please check the job status page.');
-                  }
-                  
-                  setTimeout(() => {
-                    navigate('/recent-uploads');
-                  }, 2000);
+                  // Don't redirect automatically - let user view the image
+                  alert('✅ Upload completed! Whole slide image is ready for viewing below.');
+                  setIsProcessing(false);
                 }
                 
                 // Stop polling after max attempts
@@ -517,6 +524,8 @@ if (uploadData.whole_slide_image?.s3_storage?.cloudfront_url) {
         return 'Uploading to cloud storage...';
       case 'uploaded_to_s3':
         return 'Successfully uploaded to cloud storage!';
+      case 'ready_for_viewer':
+        return '✅ Image ready for viewing!';
       case 'ready_for_access':
         return 'Upload is ready for access!';
       case 'partially_uploaded':
@@ -550,6 +559,8 @@ if (uploadData.whole_slide_image?.s3_storage?.cloudfront_url) {
         return '#8b5cf6'; // Purple
       case 'uploaded_to_s3':
         return '#10b981'; // Green
+      case 'ready_for_viewer':
+        return '#059669'; // Dark Green
       case 'ready_for_access':
         return '#059669'; // Dark Green
       case 'clean':
@@ -573,6 +584,8 @@ if (uploadData.whole_slide_image?.s3_storage?.cloudfront_url) {
         return '☁️';
       case 'uploaded_to_s3':
         return '✅';
+      case 'ready_for_viewer':
+        return '🎉';
       case 'ready_for_access':
         return '🎉';
       case 'clean':
@@ -591,16 +604,16 @@ if (uploadData.whole_slide_image?.s3_storage?.cloudfront_url) {
       <UCDavisNavbar />
       
       <div className="admin-upload-container">
-        <div className="admin-upload-header">
-          <div className="header-content">
-            <div className="header-text">
-              <h1>Admin Image Upload</h1>
-              <p>Upload blood smear images and their details here</p>
-            </div>
-            <div className="header-right">
-              <span className="username">Dr. Sarah Johnson</span>
-              <Link to="/" className="go-home-btn">
-                🏠 Home
+        {/* Integrated Header - No separate card */}
+        <div className="page-hero">
+          <div className="hero-content">
+            <h1>Admin Image Upload</h1>
+            <div className="hero-buttons">
+              <Link to="/recent-uploads" className="header-action-btn recent-btn">
+                📋 Recent Uploads ({recentUploadsCount})
+              </Link>
+              <Link to="/uploaded-data" className="header-action-btn data-btn">
+                📊 View All Uploaded Data
               </Link>
             </div>
           </div>
@@ -673,23 +686,75 @@ if (uploadData.whole_slide_image?.s3_storage?.cloudfront_url) {
           </div>
         )}
 
-                {/* Action Buttons */}
-        <div className="action-buttons-container">
-          <button 
-            className="recent-uploads-btn"
-            onClick={() => navigate('/recent-uploads')}
-            title="View recent uploads and Job IDs"
-          >
-            📋 Recent Uploads {recentUploads.length > 0 && `(${recentUploads.length})`}
-          </button>
-          <button 
-            className="view-uploaded-data-btn"
-            onClick={() => navigate('/uploaded-data')}
-            title="View all uploaded data and images"
-          >
-            📊 View All Uploaded Data
-          </button>
-        </div>
+        {/* Whole Slide Viewer - Show when ready */}
+        {jobStatus && jobStatus.status === 'ready_for_viewer' && jobStatus.uploadData?.dzi_outputs?.whole_slide?.length > 0 && (
+          <div className="viewer-section">
+            <div className="viewer-success-header">
+              <div className="success-badge">
+                <span className="success-icon">🎉</span>
+                <div>
+                  <h3>Upload Complete!</h3>
+                  <p>Your whole slide image is ready to view</p>
+                </div>
+              </div>
+              <div className="viewer-actions">
+                <button 
+                  className="view-recent-btn"
+                  onClick={() => navigate('/recent-uploads')}
+                >
+                  📋 Go to Recent Uploads
+                </button>
+                <button 
+                  className="upload-another-btn"
+                  onClick={() => {
+                    setJobStatus(null);
+                    setCurrentJobId(null);
+                    window.scrollTo(0, 0);
+                  }}
+                >
+                  ⬆️ Upload Another Image
+                </button>
+              </div>
+            </div>
+            <WholeSlideViewer 
+              dziUrl={jobStatus.uploadData.dzi_outputs.whole_slide[0]?.dzi_url}
+              metadata={jobStatus.uploadData.dzi_outputs.whole_slide[0]}
+            />
+          </div>
+        )}
+
+        {/* Cellavision Only Success - Show when ready but no whole slide */}
+        {jobStatus && jobStatus.status === 'ready_for_viewer' && !jobStatus.uploadData?.whole_slide_image && (
+          <div className="viewer-section">
+            <div className="viewer-success-header">
+              <div className="success-badge">
+                <span className="success-icon">🎉</span>
+                <div>
+                  <h3>Upload Complete!</h3>
+                  <p>Your cellavision images are ready to view</p>
+                </div>
+              </div>
+              <div className="viewer-actions">
+                <button 
+                  className="view-recent-btn"
+                  onClick={() => navigate('/recent-uploads')}
+                >
+                  📋 Go to Recent Uploads
+                </button>
+                <button 
+                  className="upload-another-btn"
+                  onClick={() => {
+                    setJobStatus(null);
+                    setCurrentJobId(null);
+                    window.scrollTo(0, 0);
+                  }}
+                >
+                  ⬆️ Upload Another Image
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="upload-type-selector">
           <h2>Select Upload Type</h2>

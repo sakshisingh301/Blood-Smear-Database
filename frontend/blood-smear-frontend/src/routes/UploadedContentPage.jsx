@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import UCDavisNavbar from '../Component/UCDavisNavbar';
+import WholeSlideViewer from '../Component/WholeSlideViewer';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import './UploadedContentPage.css';
 
 const UploadedContentPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [fullscreenImage, setFullscreenImage] = useState(null);
+  const [showWholeSlideViewer, setShowWholeSlideViewer] = useState(false);
+  const [wholeSlideViewerData, setWholeSlideViewerData] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState(null);
   
@@ -77,17 +81,21 @@ const UploadedContentPage = () => {
         source: apiData.source,
         approved: apiData.approved
       },
-      whole_slide_image: {
-        filename: apiData.whole_slide_image?.original_filename,
-        url: getImageUrl(apiData.whole_slide_image?.s3_storage),
-        status: apiData.whole_slide_image?.s3_storage?.upload_success ? 'completed' : 'failed',
-        file_size: `${(apiData.whole_slide_image?.size_bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`,
+      whole_slide_image: apiData.whole_slide_image ? {
+        filename: apiData.whole_slide_image.original_filename,
+        url: getImageUrl(apiData.whole_slide_image.s3_storage),
+        status: apiData.whole_slide_image.s3_storage?.upload_success ? 'completed' : 'failed',
+        file_size: `${(apiData.whole_slide_image.size_bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`,
         resolution: 'Unknown',
-        s3_url: apiData.whole_slide_image?.s3_storage?.s3_url,
-        cloudfront_url: apiData.whole_slide_image?.s3_storage?.cloudfront_url,
-        png_url: apiData.whole_slide_image?.s3_storage?.png_url,
-        original_tiff_url: apiData.whole_slide_image?.s3_storage?.original_tiff_url
-      },
+        s3_url: apiData.whole_slide_image.s3_storage?.s3_url,
+        cloudfront_url: apiData.whole_slide_image.s3_storage?.cloudfront_url,
+        png_url: apiData.whole_slide_image.s3_storage?.png_url,
+        original_tiff_url: apiData.whole_slide_image.s3_storage?.original_tiff_url,
+        // Add DZI data for OpenSeadragon viewer
+        has_dzi: apiData.dzi_outputs?.whole_slide?.length > 0,
+        dzi_url: apiData.dzi_outputs?.whole_slide?.[0]?.dzi_url,
+        dzi_metadata: apiData.dzi_outputs?.whole_slide?.[0]
+      } : null,
       cellavision_images: apiData.cellavision_images ? Object.entries(apiData.cellavision_images).reduce((acc, [cellType, images]) => {
         acc[cellType.toLowerCase()] = images.map(img => ({
           filename: img.original_filename,
@@ -229,29 +237,59 @@ const UploadedContentPage = () => {
     }));
   };
 
+  const copyJobId = () => {
+    navigator.clipboard.writeText(jobData.job_id);
+    // You could add a toast notification here
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed':
+      case 'ready_for_access':
+      case 'ready_for_viewer':
         return '#10b981';
       case 'processing':
-        return '#f59e0b';
+        return '#fbbf24';
+      case 'uploaded_to_s3':
+        return '#34d399';
       case 'failed':
-        return '#ef4444';
+        return '#f87171';
       default:
-        return '#6b7280';
+        return '#9ca3af';
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
-        return '✅';
+      case 'ready_for_access':
+      case 'ready_for_viewer':
+        return '🎉';
       case 'processing':
         return '⚙️';
+      case 'uploaded_to_s3':
+        return '✅';
       case 'failed':
         return '❌';
       default:
         return '❓';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'completed':
+      case 'ready_for_access':
+      case 'ready_for_viewer':
+        return 'READY TO VIEW';
+      case 'processing':
+        return 'PROCESSING';
+      case 'uploaded_to_s3':
+        return 'UPLOADED';
+      case 'failed':
+        return 'FAILED';
+      default:
+        return status ? status.toUpperCase().replace(/_/g, ' ') : 'UNKNOWN';
     }
   };
 
@@ -265,30 +303,52 @@ const UploadedContentPage = () => {
     });
   };
 
-  const handleImageClick = (image, event) => {
+  const handleImageClick = (image, event, isWholeSlide = false) => {
     event.stopPropagation();
-    setFullscreenImage(image);
+    
+    // If it's a whole slide image with DZI data, show OpenSeadragon viewer
+    if (isWholeSlide && image.has_dzi && image.dzi_url) {
+      setWholeSlideViewerData({
+        dziUrl: image.dzi_url,
+        metadata: image.dzi_metadata,
+        filename: image.filename
+      });
+      setShowWholeSlideViewer(true);
+    } else {
+      // For cellavision images, show fullscreen modal with zoom
+      setFullscreenImage(image);
+    }
   };
 
   const closeFullscreenImage = () => {
     setFullscreenImage(null);
   };
 
+  const closeWholeSlideViewer = () => {
+    setShowWholeSlideViewer(false);
+    setWholeSlideViewerData(null);
+  };
+
   useEffect(() => {
     const handleEscapeKey = (event) => {
-      if (event.key === 'Escape' && fullscreenImage) {
-        closeFullscreenImage();
+      if (event.key === 'Escape') {
+        if (fullscreenImage) {
+          closeFullscreenImage();
+        }
+        if (showWholeSlideViewer) {
+          closeWholeSlideViewer();
+        }
       }
     };
 
-    if (fullscreenImage) {
+    if (fullscreenImage || showWholeSlideViewer) {
       document.addEventListener('keydown', handleEscapeKey);
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscapeKey);
     };
-  }, [fullscreenImage]);
+  }, [fullscreenImage, showWholeSlideViewer]);
 
   if (!jobData) {
     return (
@@ -298,9 +358,12 @@ const UploadedContentPage = () => {
           <div className="error-message">
             <h2>Job Not Found</h2>
             <p>Job ID "{jobId}" not found. Please check your job ID and try again.</p>
-            <Link to="/recent-uploads" className="back-btn">
+            <button 
+              className="back-btn"
+              onClick={() => navigate('/recent-uploads')}
+            >
               ← Back to Recent Uploads
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -318,6 +381,25 @@ const UploadedContentPage = () => {
             <div className="header-text">
               <h1>📋 Uploaded Content</h1>
               <p>Detailed view of uploaded images and metadata</p>
+              <div className="job-id-compact">
+                <div className="job-id-info">
+                  <span className="job-id-label">Job ID:</span>
+                  <span className="job-id-value">{jobData.job_id}</span>
+                  <button 
+                    className="copy-job-id-compact-btn"
+                    onClick={copyJobId}
+                    title="Copy Job ID to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
+                <span 
+                  className="status-badge-compact"
+                  style={{ backgroundColor: getStatusColor(jobData.status) }}
+                >
+                  {getStatusIcon(jobData.status)} {getStatusText(jobData.status)}
+                </span>
+              </div>
             </div>
             <div className="header-actions">
               <button 
@@ -334,31 +416,20 @@ const UploadedContentPage = () => {
                   💾 Save Changes
                 </button>
               )}
-              <Link to="/recent-uploads" className="back-btn">
-                ← Back to Recent Uploads
-              </Link>
-              <Link to="/job-status" className="status-btn">
-                👁️ Job Status
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Job Info */}
-        <div className="job-info-section">
-          <div className="job-id-display">
-            <h2>Job ID: {jobData.job_id}</h2>
-            <div className="status-badge">
-              <span className="status-icon">{getStatusIcon(jobData.status)}</span>
-              <span 
-                className="status-text"
-                style={{ color: getStatusColor(jobData.status) }}
+              <button 
+                className="back-btn"
+                onClick={() => navigate('/recent-uploads')}
               >
-                {jobData.status.charAt(0).toUpperCase() + jobData.status.slice(1)}
-              </span>
+                ← Back to Recent Uploads
+              </button>
+              <button 
+                className="status-btn"
+                onClick={() => navigate('/job-status')}
+              >
+                👁️ Job Status
+              </button>
             </div>
           </div>
-          <p className="job-message">{jobData.message}</p>
         </div>
 
         {/* Metadata Section */}
@@ -635,17 +706,32 @@ const UploadedContentPage = () => {
           <h3>Uploaded Images</h3>
           
           {/* Whole Slide Image */}
-          {jobData.whole_slide_image && Object.keys(jobData.whole_slide_image).length > 0 && (
+          {jobData.whole_slide_image && (
             <div className="image-category">
               <h4>Whole Slide Image</h4>
               <div className="image-card">
                 <div className="image-preview">
-                  <img 
-                    src={jobData.whole_slide_image.url} 
-                    alt={jobData.whole_slide_image.filename}
-                    onClick={(e) => handleImageClick(jobData.whole_slide_image, e)}
-                    className="clickable-image"
-                  />
+                  {jobData.whole_slide_image.has_dzi ? (
+                    // Show placeholder with "View in Viewer" button for DZI images
+                    <div className="dzi-placeholder" onClick={(e) => handleImageClick(jobData.whole_slide_image, e, true)}>
+                      <div className="dzi-placeholder-content">
+                        <div className="dzi-icon">🔬</div>
+                        <h5>Whole Slide Image Available</h5>
+                        <p>Click to view in interactive viewer</p>
+                        <button className="view-dzi-btn">
+                          🔍 Open Viewer
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Show regular image for non-DZI images
+                    <img 
+                      src={jobData.whole_slide_image.url} 
+                      alt={jobData.whole_slide_image.filename}
+                      onClick={(e) => handleImageClick(jobData.whole_slide_image, e, false)}
+                      className="clickable-image"
+                    />
+                  )}
                   <div className="image-status-overlay">
                     <span 
                       className="image-status-badge"
@@ -660,10 +746,21 @@ const UploadedContentPage = () => {
                   </div>
                 </div>
                 <div className="image-info">
-                  <h5>{jobData.whole_slide_image.filename}</h5>
+                  <h5 className="scientific-name-display">
+                    <em>{jobData.metadata.scientific_name || 'Scientific name not available'}</em>
+                  </h5>
                   <div className="image-details">
                     <p><strong>File Size:</strong> {jobData.whole_slide_image.file_size}</p>
-                    <p><strong>Resolution:</strong> {jobData.whole_slide_image.resolution}</p>
+                    {jobData.whole_slide_image.has_dzi && jobData.whole_slide_image.dzi_metadata && (
+                      <>
+                        <p><strong>Resolution:</strong> {jobData.whole_slide_image.dzi_metadata.image_width?.toLocaleString()} × {jobData.whole_slide_image.dzi_metadata.image_height?.toLocaleString()} px</p>
+                        <p><strong>Zoom Levels:</strong> {jobData.whole_slide_image.dzi_metadata.pyramid_levels}</p>
+                        <p><strong>Tiles:</strong> {jobData.whole_slide_image.dzi_metadata.tile_count?.toLocaleString()}</p>
+                      </>
+                    )}
+                    {!jobData.whole_slide_image.has_dzi && (
+                      <p><strong>Resolution:</strong> {jobData.whole_slide_image.resolution}</p>
+                    )}
                     {jobData.whole_slide_image.status === 'completed' && (
                       <>
                         <p><strong>Processing Time:</strong> {jobData.whole_slide_image.processing_time}</p>
@@ -692,6 +789,7 @@ const UploadedContentPage = () => {
                             alt={imageData.filename}
                             onClick={(e) => handleImageClick(imageData, e)}
                             className="clickable-image"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
                           />
                           <div className="image-status-overlay">
                             <span 
@@ -707,7 +805,6 @@ const UploadedContentPage = () => {
                           </div>
                         </div>
                         <div className="image-info">
-                          <h6>{imageData.filename}</h6>
                           <p><strong>Cell Count:</strong> {imageData.cell_count || 'N/A'}</p>
                         </div>
                       </div>
@@ -719,6 +816,7 @@ const UploadedContentPage = () => {
                             alt={images.filename}
                             onClick={(e) => handleImageClick(images, e)}
                             className="clickable-image"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
                           />
                         </div>
                       </div>
@@ -742,24 +840,66 @@ const UploadedContentPage = () => {
         )}
       </div>
 
-      {/* Full-Screen Image Viewer Modal */}
+      {/* Full-Screen Image Viewer Modal with Zoom (for cellavision images) */}
       {fullscreenImage && (
         <div className="fullscreen-image-modal" onClick={closeFullscreenImage}>
-          <div className="fullscreen-image-container">
+          <div className="fullscreen-image-container" onClick={(e) => e.stopPropagation()}>
             <div className="fullscreen-image-header">
               <h3>{fullscreenImage.filename}</h3>
               <button className="close-fullscreen-btn" onClick={closeFullscreenImage}>×</button>
             </div>
             <div className="fullscreen-image-content">
-              <img 
-                src={fullscreenImage.url} 
-                alt={fullscreenImage.filename}
-                className="fullscreen-image"
-              />
+              <TransformWrapper
+                initialScale={1}
+                minScale={1}
+                maxScale={8}
+                doubleClick={{ mode: "reset" }}
+                wheel={{ step: 0.1 }}
+              >
+                <TransformComponent
+                  wrapperStyle={{ width: '100%', height: '100%' }}
+                  contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <img 
+                    src={fullscreenImage.url} 
+                    alt={fullscreenImage.filename}
+                    className="fullscreen-image"
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                  />
+                </TransformComponent>
+              </TransformWrapper>
             </div>
             <div className="fullscreen-image-footer">
               <p className="image-instructions">
-                Click outside the image or press ESC to close
+                🖱️ Scroll to zoom • Drag to pan • Double-click to reset • Press ESC to close
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Whole Slide Viewer Modal (for DZI images with OpenSeadragon) */}
+      {showWholeSlideViewer && wholeSlideViewerData && (
+        <div className="whole-slide-viewer-modal" onClick={closeWholeSlideViewer}>
+          <div className="whole-slide-viewer-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="whole-slide-viewer-modal-header">
+              <div className="viewer-modal-title">
+                <h3>🔬 {wholeSlideViewerData.filename}</h3>
+                <p className="viewer-modal-subtitle">Interactive Whole Slide Viewer</p>
+              </div>
+              <button className="close-viewer-btn" onClick={closeWholeSlideViewer}>
+                ✕ Close
+              </button>
+            </div>
+            <div className="whole-slide-viewer-modal-content">
+              <WholeSlideViewer 
+                dziUrl={wholeSlideViewerData.dziUrl}
+                metadata={wholeSlideViewerData.metadata}
+              />
+            </div>
+            <div className="whole-slide-viewer-modal-footer">
+              <p className="viewer-instructions">
+                🖱️ Use mouse to pan • Scroll to zoom • Press ESC to close
               </p>
             </div>
           </div>

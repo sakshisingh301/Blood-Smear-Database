@@ -1,0 +1,33 @@
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependencies
+node_modules/
+*/node_modules/
+
+
+# OS files
+.DS_Store
+Thumbs.db
+# IDE files
+.vscode/
+.idea/
+
+# Database files
+*.db
+*.sqlite
+
+
+
+# Bioformats tools (large binaries)
+backend/blood-smear-backend/bioformats/
+backend/blood-smear-backend/Kafka/bioformats/
+
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/

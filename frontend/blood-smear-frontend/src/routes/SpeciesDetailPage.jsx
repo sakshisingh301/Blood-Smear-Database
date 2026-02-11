@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import UCDavisNavbar from '../Component/UCDavisNavbar';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import './SpeciesDetailPage.css';
 
 // Dummy species data based on IOC World Bird List classification
@@ -941,12 +942,21 @@ const SpeciesDetailPage = () => {
                   <div className="image-grid">
                     {images.map((imageUrl, index) => (
                       <div key={index} className="image-item">
-                        <img
-                          src={imageUrl}
-                          alt={`${cellType} cellavision image ${index + 1}`}
-                          onClick={() => openImageModal(imageUrl, 'cellavision', cellType)}
-                          className="image-thumbnail"
-                        />
+                        <TransformWrapper
+                          initialScale={1}
+                          minScale={1}
+                          maxScale={4}
+                          doubleClick={{ mode: "reset" }}
+                        >
+                          <TransformComponent>
+                            <img
+                              src={imageUrl}
+                              alt={`${cellType} cellavision image ${index + 1}`}
+                              className="image-thumbnail"
+                              style={{ width: '100%', height: 'auto', cursor: 'zoom-in', display: 'block' }}
+                            />
+                          </TransformComponent>
+                        </TransformWrapper>
                         <p>{cellType} - Image {index + 1}</p>
                       </div>
                     ))}

@@ -10,22 +10,23 @@
 
 .gold-background {
   background: #FFBF00; /* UC Davis Aggie Gold from brand guide */
-  height: 1000px;
+  height: 400px;
   position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  min-height: 1000px;
+  min-height: 400px;
   overflow: visible;
-  padding-top: 50px;
+  padding-top: 30px;
 }
 
 
 
 .golden-retriever-image {
-  width: 650px;
+  width: 350px;
   height: auto;
   max-width: 95%;
+  max-height: 340px;
   object-fit: contain;
   position: relative;
   filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));

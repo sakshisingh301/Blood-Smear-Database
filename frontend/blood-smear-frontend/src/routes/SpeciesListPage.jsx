@@ -19,25 +19,111 @@ const SpeciesListPage = () => {
   const [itemsPerPage] = useState(12);
 
   useEffect(() => {
-    const fetchSpecies = async () => {
-      try {
-        const response = await fetch('http://localhost:3000/api/species');
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-          setSpecies(result.data);
-        } else {
-          setError('Failed to fetch species data');
-        }
-      } catch (error) {
-        console.error('Failed to fetch species data:', error);
-        setError('Failed to fetch species data');
-      } finally {
-        setLoading(false);
+    // Mock data for UI testing (backend API not implemented yet)
+    const mockSpecies = [
+      {
+        scientificName: "Passer domesticus",
+        commonName: "House Sparrow",
+        class: "Aves",
+        order: "Passeriformes",
+        family: "Passeridae",
+        description: "A small bird found in urban areas worldwide. House sparrows are highly adaptable and have colonized nearly every corner of the globe."
+      },
+      {
+        scientificName: "Canis lupus",
+        commonName: "Gray Wolf",
+        class: "Mammalia",
+        order: "Carnivora",
+        family: "Canidae",
+        description: "A large carnivorous mammal native to wilderness areas. Gray wolves are apex predators and live in complex social structures called packs."
+      },
+      {
+        scientificName: "Felis catus",
+        commonName: "Domestic Cat",
+        class: "Mammalia",
+        order: "Carnivora",
+        family: "Felidae",
+        description: "A small domesticated carnivorous mammal. Cats have been associated with humans for at least 9,500 years."
+      },
+      {
+        scientificName: "Tyto alba",
+        commonName: "Barn Owl",
+        class: "Aves",
+        order: "Strigiformes",
+        family: "Tytonidae",
+        description: "A pale-colored owl found on every continent except Antarctica. Barn owls are known for their heart-shaped facial disk."
+      },
+      {
+        scientificName: "Panthera leo",
+        commonName: "Lion",
+        class: "Mammalia",
+        order: "Carnivora",
+        family: "Felidae",
+        description: "A large cat species native to Africa and India. Lions are the only cats that live in groups called prides."
+      },
+      {
+        scientificName: "Aquila chrysaetos",
+        commonName: "Golden Eagle",
+        class: "Aves",
+        order: "Accipitriformes",
+        family: "Accipitridae",
+        description: "A large bird of prey found across the Northern Hemisphere. Golden eagles are among the largest and most formidable raptors."
+      },
+      {
+        scientificName: "Vulpes vulpes",
+        commonName: "Red Fox",
+        class: "Mammalia",
+        order: "Carnivora",
+        family: "Canidae",
+        description: "The largest of the true foxes and most widespread carnivore in the world. Red foxes are highly adaptable to various environments."
+      },
+      {
+        scientificName: "Corvus corax",
+        commonName: "Common Raven",
+        class: "Aves",
+        order: "Passeriformes",
+        family: "Corvidae",
+        description: "One of the largest and most intelligent bird species. Ravens are known for their problem-solving abilities and complex vocalizations."
+      },
+      {
+        scientificName: "Ursus arctos",
+        commonName: "Brown Bear",
+        class: "Mammalia",
+        order: "Carnivora",
+        family: "Ursidae",
+        description: "A large bear species found across Eurasia and North America. Brown bears are omnivores with a varied diet."
+      },
+      {
+        scientificName: "Falco peregrinus",
+        commonName: "Peregrine Falcon",
+        class: "Aves",
+        order: "Falconiformes",
+        family: "Falconidae",
+        description: "The fastest animal on Earth when diving. Peregrine falcons can reach speeds over 240 mph during their hunting stoop."
+      },
+      {
+        scientificName: "Equus ferus",
+        commonName: "Domestic Horse",
+        class: "Mammalia",
+        order: "Perissodactyla",
+        family: "Equidae",
+        description: "A domesticated odd-toed ungulate. Horses have been companions and workers for humans for thousands of years."
+      },
+      {
+        scientificName: "Bubo bubo",
+        commonName: "Eurasian Eagle-Owl",
+        class: "Aves",
+        order: "Strigiformes",
+        family: "Strigidae",
+        description: "One of the largest species of owl. These powerful predators can take prey as large as foxes and young deer."
       }
-    };
-    
-    fetchSpecies();
+    ];
+
+    // Simulate API delay and set mock data
+    setTimeout(() => {
+      setSpecies(mockSpecies);
+      setLoading(false);
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -193,7 +279,7 @@ const SpeciesListPage = () => {
         <div className="error-container">
           <h2>Error</h2>
           <p>{error}</p>
-          <button onClick={fetchSpecies} className="retry-button">
+          <button onClick={() => window.location.reload()} className="retry-button">
             Try Again
           </button>
         </div>

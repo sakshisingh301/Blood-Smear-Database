@@ -22,6 +22,20 @@ const RecentUploadsPage = () => {
     // You could add a toast notification here
   };
 
+  const deleteUpload = (jobId) => {
+    // Remove the upload from the list
+    const updatedUploads = recentUploads.filter(upload => upload.id !== jobId);
+    setRecentUploads(updatedUploads);
+    // Update localStorage
+    localStorage.setItem('recentUploads', JSON.stringify(updatedUploads));
+    // Adjust current page if needed
+    const newTotalPages = Math.ceil(updatedUploads.length / itemsPerPage);
+    if (currentPage > newTotalPages && newTotalPages > 0) {
+      setCurrentPage(newTotalPages);
+    }
+    // TODO: Add backend API call to delete from database when ready
+  };
+
   const getUploadType = (upload) => {
     console.log("getting upload type ",upload)
     // Use the upload data to determine type
@@ -64,15 +78,15 @@ const RecentUploadsPage = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'processing':
-        return '#f59e0b'; // Amber
+        return '#fbbf24'; // Light Amber
       case 'uploaded_to_s3':
-        return '#10b981'; // Green
+        return '#34d399'; // Light Green
       case 'ready_for_access':
-        return '#059669'; // Dark Green
+        return '#10b981'; // Bright Green
       case 'failed':
-        return '#ef4444'; // Red
+        return '#f87171'; // Light Red
       default:
-        return '#6b7280'; // Gray
+        return '#9ca3af'; // Light Gray
     }
   };
 
@@ -88,6 +102,21 @@ const RecentUploadsPage = () => {
         return '❌';
       default:
         return '❓';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'processing':
+        return 'PROCESSING';
+      case 'uploaded_to_s3':
+        return 'UPLOADED';
+      case 'ready_for_access':
+        return 'READY TO VIEW';
+      case 'failed':
+        return 'FAILED';
+      default:
+        return status.toUpperCase();
     }
   };
 
@@ -162,9 +191,12 @@ const RecentUploadsPage = () => {
                         {upload.status && (
                           <span 
                             className="status-badge"
-                            style={{ backgroundColor: getStatusColor(upload.status) }}
+                            style={{ 
+                              backgroundColor: getStatusColor(upload.status),
+                              color: '#1f2937'
+                            }}
                           >
-                            {getStatusIcon(upload.status)} {upload.status}
+                            {getStatusIcon(upload.status)} {getStatusText(upload.status)}
                           </span>
                         )}
                       </div>
@@ -194,6 +226,13 @@ const RecentUploadsPage = () => {
                           title="View uploaded content and status"
                         >
                           🖼️ View Content
+                        </button>
+                        <button 
+                          className="delete-upload-btn"
+                          onClick={() => deleteUpload(upload.id)}
+                          title="Delete this upload"
+                        >
+                          🗑️ Delete
                         </button>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import ucdavisLogo from "../assets/ucdavis_logo_blue.png";
 import vetMedLogo from "../assets/left-aligned-blue-gold-logo-rgb.png";
 import "./UCDavisNavbar.css";
@@ -7,14 +7,19 @@ import "./UCDavisNavbar.css";
 const UCDavisNavbar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const toggleNavbar = () => {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Check if we're on public species pages
-  const isPublicSpeciesPage = location.pathname.startsWith('/species');
-  
+  const handleHomeClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Home button clicked - navigating to /');
+    window.location.href = '/';
+  };
+
   // Check if we're on about page
   const isAboutPage = location.pathname === '/about';
 
@@ -44,20 +49,14 @@ const UCDavisNavbar = () => {
           <a className="navbar-brand-main" href="#">
             <img src={vetMedLogo} alt="UC Davis School of Veterinary Medicine" />
           </a>
-          {(location.pathname === '/register' || location.pathname === '/login') && (
-            <Link to="/" className="back-to-home">
+          {location.pathname !== '/' && (
+            <button 
+              type="button"
+              onClick={handleHomeClick} 
+              className="back-to-home"
+            >
               🏠 Home
-            </Link>
-          )}
-          {isAboutPage && (
-            <Link to="/" className="back-to-home">
-              🏠 Home
-            </Link>
-          )}
-          {isPublicSpeciesPage && (
-            <Link to="/" className="back-to-home">
-              🏠 Home
-            </Link>
+            </button>
           )}
         </div>
       </div>
