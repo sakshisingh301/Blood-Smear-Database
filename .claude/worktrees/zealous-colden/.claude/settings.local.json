@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf .clone)",
+      "Bash(rm -rf public)",
+      "Bash(rm -f package-lock.json)"
+    ]
+  }
+}
