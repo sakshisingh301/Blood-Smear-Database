@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "kafkajs": "^2.2.4",
-    "sharp": "^0.34.4"
-  }
-}
