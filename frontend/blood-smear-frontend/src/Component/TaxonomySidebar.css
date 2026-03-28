@@ -1,0 +1,366 @@
+/* ── TaxonomySidebar ──────────────────────────────────────────────────── */
+
+.tsb-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 199;
+  backdrop-filter: blur(2px);
+}
+
+.tsb-sidebar {
+  width: 272px;
+  min-width: 272px;
+  background: #f5f7fa;
+  border-right: 1px solid #dde3ec;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #c8d2de transparent;
+}
+
+.tsb-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.tsb-sidebar::-webkit-scrollbar-thumb {
+  background: #c8d2de;
+  border-radius: 2px;
+}
+
+/* ── Header ── */
+.tsb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.1rem 0.75rem;
+  border-bottom: 1px solid #dde3ec;
+  background: #f5f7fa;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.tsb-header__title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1c2b3a;
+  margin: 0;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: #546578;
+}
+
+.tsb-header__close {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #7a8fa3;
+  padding: 0.25rem;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.tsb-header__close:hover {
+  color: #1c2b3a;
+  background: #e2e8ef;
+}
+
+/* ── Sections ── */
+.tsb-section {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid #dde3ec;
+}
+
+/* ── All specimens button ── */
+.tsb-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  color: #1c2b3a;
+}
+
+.tsb-all-btn:hover {
+  background: #e8edf3;
+}
+
+.tsb-all-btn--active {
+  background: #dce8f5;
+  border-color: #a8c4e0;
+  color: #022851;
+}
+
+.tsb-all-btn__icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  color: #546578;
+}
+
+.tsb-all-btn__label {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* ── Count badges ── */
+.tsb-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #546578;
+  background: #e2e8ef;
+  border-radius: 10px;
+  padding: 0.1rem 0.45rem;
+  min-width: 1.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tsb-count--sm {
+  font-size: 0.65rem;
+}
+
+/* ── Nav heading ── */
+.tsb-nav__heading {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a9bb0;
+  margin: 0 0 0.65rem;
+}
+
+/* ── Class group ── */
+.tsb-group {
+  margin-bottom: 0.25rem;
+}
+
+.tsb-group__row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ── Class button ── */
+.tsb-class-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  color: #1c2b3a;
+  min-width: 0;
+}
+
+.tsb-class-btn:hover {
+  background: #e8edf3;
+}
+
+.tsb-class-btn--active {
+  background: #dce8f5;
+  border-color: #a8c4e0;
+  color: #022851;
+}
+
+.tsb-class-btn--active .tsb-count {
+  background: #c2d8ed;
+  color: #022851;
+}
+
+.tsb-class-btn__icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.tsb-class-btn__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.tsb-class-btn__label {
+  font-size: 0.855rem;
+  font-weight: 600;
+  color: inherit;
+  display: block;
+}
+
+.tsb-class-btn__sci {
+  font-size: 0.7rem;
+  color: #7a8fa3;
+  font-style: italic;
+  display: block;
+}
+
+.tsb-class-btn--active .tsb-class-btn__sci {
+  color: #3a6c9e;
+}
+
+/* ── Expand chevron button ── */
+.tsb-expand-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #8a9bb0;
+  padding: 0.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s, transform 0.2s;
+}
+
+.tsb-expand-btn:hover {
+  color: #022851;
+  background: #e2e8ef;
+}
+
+.tsb-expand-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.tsb-expand-btn--open svg {
+  transform: rotate(180deg);
+}
+
+/* ── Order list ── */
+.tsb-orders {
+  list-style: none;
+  padding: 0.25rem 0 0.25rem 1.5rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.tsb-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 0.38rem 0.6rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  color: #3a4f64;
+}
+
+.tsb-order-btn:hover {
+  background: #e8edf3;
+  color: #1c2b3a;
+}
+
+.tsb-order-btn--active {
+  background: #dce8f5;
+  border-color: #a8c4e0;
+  color: #022851;
+}
+
+.tsb-order-btn--active .tsb-count {
+  background: #c2d8ed;
+  color: #022851;
+}
+
+.tsb-order-btn__name {
+  font-size: 0.815rem;
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* ── Stats ── */
+.tsb-stats {
+  margin-top: auto;
+}
+
+.tsb-stats__heading {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a9bb0;
+  margin: 0 0 0.75rem;
+}
+
+.tsb-stats__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.tsb-stat {
+  background: #ffffff;
+  border: 1px solid #dde3ec;
+  border-radius: 6px;
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.tsb-stat__num {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #022851;
+  line-height: 1;
+  font-family: Georgia, serif;
+}
+
+.tsb-stat__label {
+  font-size: 0.68rem;
+  color: #7a8fa3;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Mobile: drawer behavior ── */
+@media (max-width: 1023px) {
+  .tsb-sidebar {
+    position: fixed;
+    left: -100%;
+    top: 0;
+    height: 100vh;
+    z-index: 200;
+    transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  .tsb-sidebar--open {
+    left: 0;
+  }
+
+  .tsb-header__close {
+    display: flex;
+  }
+}
