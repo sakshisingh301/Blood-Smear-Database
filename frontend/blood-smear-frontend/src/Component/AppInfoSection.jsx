@@ -28,6 +28,12 @@ const IconGrid = () => (
   </svg>
 );
 
+const IconShield = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
 // ── Component ─────────────────────────────────────────────────────────────
 
 const AppInfoSection = () => {
@@ -63,6 +69,16 @@ const AppInfoSection = () => {
       cta: "View Recent",
       path: "/recent-uploads",
       accentVar: "var(--ais-teal)",
+    },
+    {
+      icon: <IconShield />,
+      title: "Admin Upload",
+      description:
+        "Upload and approve new blood smear specimens directly into the database. Restricted to authorized UC Davis administrators.",
+      tags: ["Full Slide Upload", "Cellavision", "Admin Only"],
+      cta: "Open Admin Panel",
+      path: "/admin/upload",
+      accentVar: "var(--ais-admin)",
     },
   ];
 
