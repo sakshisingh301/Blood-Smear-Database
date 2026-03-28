@@ -1,71 +1,255 @@
-/* Gold background section below navbar with parrot photo */
-.navbar-gold-section {
-  width: 100%;
+/* ══════════════════════════════════════════════════════════════
+   Homepage Hero  (GoldBackgroundSection.css)
+   UC Davis Blue background · search-first entry point
+   ══════════════════════════════════════════════════════════════ */
+
+.hp-hero {
+  background: linear-gradient(150deg, #011e3a 0%, #022851 50%, #02386e 100%);
   position: relative;
   overflow: hidden;
-  z-index: 1;
-  clear: both;
-  margin-bottom: 0;
+  padding: 4rem 2rem 3.5rem;
 }
 
-.gold-background {
-  background: #FFBF00; /* UC Davis Aggie Gold from brand guide */
-  height: 400px;
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  min-height: 400px;
-  overflow: visible;
-  padding-top: 30px;
+/* Subtle ambient light accents */
+.hp-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 12% 65%, rgba(255, 255, 255, 0.045) 0%, transparent 50%),
+    radial-gradient(ellipse at 88% 18%, rgba(255, 255, 255, 0.03)  0%, transparent 45%);
+  pointer-events: none;
 }
 
-
-
-.golden-retriever-image {
-  width: 350px;
-  height: auto;
-  max-width: 95%;
-  max-height: 340px;
-  object-fit: contain;
+.hp-hero__inner {
   position: relative;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  z-index: 1;
-  transition: all 0.3s ease;
+  max-width: 760px;
   margin: 0 auto;
-  transform: translateY(0px);
+  text-align: center;
 }
 
-.golden-retriever-image:hover {
-  transform: scale(1.02);
-  filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.25));
+/* Eyebrow */
+.hp-hero__eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+  margin: 0 0 1rem;
 }
 
-/* Responsive design for parrot image */
+/* Headline */
+.hp-hero__title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.6rem, 3.2vw, 2.35rem);
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 1rem;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+}
+
+.hp-hero__br { display: inline; }
+
+/* Subtitle */
+.hp-hero__subtitle {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.62);
+  margin: 0 0 2.25rem;
+  line-height: 1.65;
+}
+
+/* ── Search bar ─────────────────────────────────────────────── */
+.hp-hero__search {
+  max-width: 620px;
+  margin: 0 auto 1.75rem;
+}
+
+.hp-hero__search-wrap {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.28);
+  position: relative;
+}
+
+.hp-hero__search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8a9eb5;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.hp-hero__search-input {
+  flex: 1;
+  border: none;
+  padding: 1rem 0.75rem 1rem 3rem;
+  font-size: 0.95rem;
+  color: #1c2b3a;
+  background: transparent;
+  outline: none;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.hp-hero__search-input::placeholder {
+  color: #8a9eb5;
+}
+
+/* Remove default browser search cancel button */
+.hp-hero__search-input::-webkit-search-cancel-button { display: none; }
+
+.hp-hero__search-btn {
+  background: #022851;
+  color: #ffffff;
+  border: none;
+  padding: 1rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.hp-hero__search-btn:hover {
+  background: #034a8c;
+}
+
+/* Quick taxonomy chips */
+.hp-hero__quick-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.hp-hero__quick-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.hp-hero__quick-chip {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 20px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.22rem 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-style: italic;
+}
+
+.hp-hero__quick-chip:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* ── CTA buttons ────────────────────────────────────────────── */
+.hp-hero__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hp-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.01em;
+}
+
+/* Gold primary CTA — the one action to do right now */
+.hp-hero__cta--primary {
+  background: #FFBF00;
+  color: #022851;
+}
+
+.hp-hero__cta--primary:hover {
+  background: #e6ac00;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(255, 191, 0, 0.38);
+}
+
+/* Ghost secondary CTA */
+.hp-hero__cta--secondary {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  border: 1.5px solid rgba(255, 255, 255, 0.32);
+}
+
+.hp-hero__cta--secondary:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .gold-background {
-    height: 950px;
-    min-height: 950px;
+  .hp-hero {
+    padding: 3rem 1.5rem 2.75rem;
   }
-  
-  .golden-retriever-image {
-    width: 550px;
-    max-width: 90%;
-    transform: translateY(0px);
+
+  .hp-hero__title {
+    font-size: 1.55rem;
+  }
+
+  .hp-hero__br { display: none; }
+
+  .hp-hero__search-btn {
+    padding: 1rem 1rem;
   }
 }
 
 @media (max-width: 480px) {
-  .gold-background {
-    height: 900px;
-    min-height: 900px;
+  .hp-hero {
+    padding: 2.5rem 1rem 2.25rem;
   }
-  
-  .golden-retriever-image {
-    width: 450px;
-    max-width: 85%;
-    transform: translateY(0px);
+
+  .hp-hero__title {
+    font-size: 1.4rem;
+  }
+
+  .hp-hero__search-wrap {
+    flex-direction: column;
+    border-radius: 8px;
+  }
+
+  .hp-hero__search-icon {
+    top: 1.1rem;
+    transform: none;
+  }
+
+  .hp-hero__search-input {
+    width: 100%;
+    border-bottom: 1px solid #e1e7ef;
+  }
+
+  .hp-hero__search-btn {
+    width: 100%;
+    border-radius: 0 0 8px 8px;
+    padding: 0.85rem;
   }
 }

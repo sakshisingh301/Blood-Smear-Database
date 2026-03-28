@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import UCDavisNavbar from '../Component/UCDavisNavbar';
 import TaxonomySidebar from '../Component/TaxonomySidebar';
 import SpecimenCard from '../Component/SpecimenCard';
@@ -97,10 +98,11 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 
 // ── Main page ──────────────────────────────────────────────────────────────
 const SpeciesListPage = () => {
+  const [searchParams] = useSearchParams();
   const [species, setSpecies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState('all');
   const [selectedFamily, setSelectedFamily] = useState('all');

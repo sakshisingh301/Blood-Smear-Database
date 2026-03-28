@@ -1,223 +1,269 @@
-/* Recent Uploads Section Styles */
-.recent-uploads-section {
-  background: linear-gradient(135deg, #6FCFEB 0%, #00B2E3 50%, #0047BA 100%);
-  padding: 4rem 0;
-  position: relative;
-  overflow: hidden;
-  border-top: 3px solid #FFBF00;
-  position: relative;
+/* ══════════════════════════════════════════════════════════════
+   RecentUploadsSection  —  specimen grid + CTA
+   ══════════════════════════════════════════════════════════════ */
+
+.rus-section {
+  background: #ffffff;
+  padding: 3rem 0 3.5rem;
+  border-top: 1px solid #dde3ec;
 }
 
-.recent-uploads-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, #FFBF00 50%, transparent 100%);
-  opacity: 0.8;
-}
-
-.recent-uploads-container {
-  max-width: 1200px;
+.rus-inner {
+  max-width: 1160px;
   margin: 0 auto;
   padding: 0 2rem;
 }
 
-.section-header {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.section-header h2 {
-  color: #003A5D;
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  font-family: 'Georgia', serif;
-  text-shadow: 0 2px 4px rgba(0, 58, 93, 0.2);
-  position: relative;
-}
-
-.section-header h2::after {
-  content: '';
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 3px;
-  background: linear-gradient(90deg, transparent 0%, #FFBF00 50%, transparent 100%);
-  border-radius: 2px;
-}
-
-.section-header p {
-  color: #ffffff;
-  font-size: 1.1rem;
-  margin: 0;
-  font-weight: 500;
-  opacity: 0.95;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.uploads-carousel {
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 3rem;
-}
-
-.uploads-track {
+/* ── Section header ─────────────────────────────────────────── */
+.rus-header {
   display: flex;
-  animation: scroll 30s linear infinite;
-  gap: 2rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-@keyframes scroll {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+.rus-header__title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #1c2b3a;
+  margin: 0 0 0.3rem;
+  letter-spacing: -0.01em;
 }
 
-.upload-item {
-  flex: 0 0 250px;
-  position: relative;
+.rus-header__sub {
+  font-size: 0.875rem;
+  color: #7a8fa3;
+  margin: 0;
 }
 
-.upload-image-container {
-  position: relative;
-  border-radius: 12px;
+.rus-header__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: 1px solid #dde3ec;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #022851;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rus-header__cta:hover {
+  background: #f0f4f8;
+  border-color: #b0c4d8;
+}
+
+/* ── Specimen grid ──────────────────────────────────────────── */
+.rus-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+/* ── Specimen card ──────────────────────────────────────────── */
+.rus-card {
+  background: #ffffff;
+  border: 1px solid #dde3ec;
+  border-radius: 6px;
   overflow: hidden;
-  box-shadow: 0 8px 25px rgba(0, 58, 93, 0.2);
-  transition: all 0.3s ease;
-  background: white;
-  border: 2px solid rgba(255, 191, 0, 0.3);
+  cursor: pointer;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  display: flex;
+  flex-direction: column;
 }
 
-.upload-image-container:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 35px rgba(0, 58, 93, 0.3);
-  border-color: rgba(255, 191, 0, 0.6);
+.rus-card:hover {
+  box-shadow: 0 6px 22px rgba(2, 40, 81, 0.1);
+  transform: translateY(-2px);
 }
 
-.upload-image {
+.rus-card:focus-visible {
+  outline: 2px solid #022851;
+  outline-offset: 2px;
+}
+
+/* Image area */
+.rus-card__img-wrap {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #e8ecf0;
+}
+
+.rus-card__img {
   width: 100%;
-  height: 180px;
+  height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.3s ease;
 }
 
-.upload-overlay {
+.rus-card:hover .rus-card__img {
+  transform: scale(1.04);
+}
+
+/* Hover overlay */
+.rus-card__overlay {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
-  padding: 1rem;
+  inset: 0;
+  background: rgba(2, 40, 81, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease;
 }
 
-.upload-image-container:hover .upload-overlay {
+.rus-card:hover .rus-card__overlay {
   opacity: 1;
 }
 
-.upload-info {
-  color: white;
-  text-align: center;
+.rus-card__overlay-text {
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  padding: 0.45rem 1rem;
+  border-radius: 4px;
 }
 
-.species {
-  display: block;
-  font-weight: 600;
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
+/* Card body */
+.rus-card__body {
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
 }
 
-.uploader {
-  display: block;
-  font-size: 0.85rem;
-  opacity: 0.9;
+.rus-card__names {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
-.section-footer {
-  text-align: center;
+.rus-card__common {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1c2b3a;
+  margin: 0;
+  line-height: 1.3;
 }
 
-.view-all-btn {
-  background: linear-gradient(135deg, #003A5D 0%, #0047BA 100%);
-  color: white;
+.rus-card__sci {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: #7a8fa3;
+  margin: 0;
+}
+
+.rus-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.rus-card__date {
+  font-size: 0.7rem;
+  color: #9caebf;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Class chips ────────────────────────────────────────────── */
+.rus-chip {
+  display: inline-block;
+  padding: 0.18rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: #dde8f5;
+  color: #022851;
+}
+
+.rus-chip--mammalia  { background: #f5e6dc; color: #7b3514; }
+.rus-chip--aves      { background: #ddf0e6; color: #1a5c34; }
+.rus-chip--reptilia  { background: #e8f0dc; color: #3d5c14; }
+.rus-chip--amphibia  { background: #ddf0f0; color: #1a5a5a; }
+.rus-chip--fish      { background: #dde0f5; color: #1a2f7b; }
+
+/* ── Footer CTA ─────────────────────────────────────────────── */
+.rus-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.rus-footer__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #022851;
+  color: #ffffff;
   border: none;
-  padding: 1rem 2rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: 6px;
+  padding: 0.75rem 1.75rem;
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 58, 93, 0.3);
-  border: 2px solid rgba(255, 191, 0, 0.2);
+  transition: background 0.15s, transform 0.15s;
+  letter-spacing: 0.01em;
 }
 
-.view-all-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 58, 93, 0.4);
-  background: linear-gradient(135deg, #0047BA 0%, #003A5D 100%);
-  border-color: rgba(255, 191, 0, 0.4);
+.rus-footer__btn:hover {
+  background: #034a8c;
+  transform: translateY(-1px);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .recent-uploads-section {
-    padding: 3rem 0;
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .rus-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
-  
-  .recent-uploads-container {
+}
+
+@media (max-width: 640px) {
+  .rus-section {
+    padding: 2rem 0 2.5rem;
+  }
+
+  .rus-inner {
     padding: 0 1rem;
   }
-  
-  .section-header h2 {
-    font-size: 2rem;
+
+  .rus-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
   }
-  
-  .section-header p {
-    font-size: 1rem;
+
+  .rus-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
   }
-  
-  .upload-item {
-    flex: 0 0 200px;
-  }
-  
-  .upload-image {
-    height: 150px;
-  }
-  
-  .uploads-track {
-    gap: 1.5rem;
+
+  .rus-header__title {
+    font-size: 1.25rem;
   }
 }
 
-@media (max-width: 480px) {
-  .section-header h2 {
-    font-size: 1.75rem;
-  }
-  
-  .upload-item {
-    flex: 0 0 180px;
-  }
-  
-  .upload-image {
-    height: 130px;
-  }
-  
-  .uploads-track {
-    gap: 1rem;
-  }
-  
-  .view-all-btn {
-    padding: 0.875rem 1.5rem;
-    font-size: 0.9rem;
+@media (max-width: 420px) {
+  .rus-grid {
+    grid-template-columns: 1fr;
   }
 }

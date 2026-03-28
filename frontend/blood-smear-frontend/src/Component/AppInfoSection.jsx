@@ -1,296 +1,179 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 import "./AppInfoSection.css";
 
+// ── SVG icons (inline, no external deps) ─────────────────────────────────
+
+const IconSearch = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
+const IconUpload = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="16 16 12 12 8 16" />
+    <line x1="12" y1="12" x2="12" y2="21" />
+    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+  </svg>
+);
+
+const IconGrid = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3" y="3" width="7" height="7" />
+    <rect x="14" y="3" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" />
+  </svg>
+);
+
+// ── Component ─────────────────────────────────────────────────────────────
+
 const AppInfoSection = () => {
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const navigate = useNavigate();
 
-  const openLoginModal = () => setIsLoginModalOpen(true);
-  const closeLoginModal = () => setIsLoginModalOpen(false);
-  const openRegisterModal = () => setIsRegisterModalOpen(true);
-  const closeRegisterModal = () => setIsRegisterModalOpen(false);
-  
-  const handleGetStarted = () => {
-    navigate('/register');
-  };
+  const actions = [
+    {
+      icon: <IconSearch />,
+      title: "Explore & Search Cases",
+      description:
+        "Browse our database of blood smear images from exotic and zoo animals. Filter by taxonomy, class, or specimen metadata.",
+      tags: ["Taxonomy Browse", "Advanced Filters", "Whole Slide Viewer"],
+      cta: "Open Database",
+      path: "/species/browse",
+      accentVar: "var(--ais-blue)",
+    },
+    {
+      icon: <IconUpload />,
+      title: "Contribute to the Database",
+      description:
+        "Share your blood smear images and help build a comprehensive hematology resource. All contributions go through expert review.",
+      tags: ["Full Slide Upload", "Cellavision Data", "Expert Review"],
+      cta: "Start Contributing",
+      path: "/contribute",
+      accentVar: "var(--ais-green)",
+    },
+    {
+      icon: <IconGrid />,
+      title: "View Recent Uploads",
+      description:
+        "See the latest specimens added to the archive with taxonomy metadata and hematology context from the UC Davis veterinary team.",
+      tags: ["Latest Specimens", "Taxonomy Tags", "Image Previews"],
+      cta: "View Recent",
+      path: "/recent-uploads",
+      accentVar: "var(--ais-teal)",
+    },
+  ];
 
-  const handleSignIn = () => {
-    navigate('/login');
-  };
+  const audiences = [
+    {
+      emoji: "👨‍⚕️",
+      title: "Veterinarians",
+      text: "Enhance diagnostic accuracy with a comprehensive library of comparative hematology images and advanced search tools.",
+      tags: ["Diagnostic Support", "Case Management"],
+    },
+    {
+      emoji: "🔬",
+      title: "Researchers",
+      text: "Conduct research with access to extensive image datasets and curated taxonomic metadata across exotic animal species.",
+      tags: ["Dataset Access", "Taxonomy Metadata"],
+    },
+    {
+      emoji: "🎓",
+      title: "Students & Educators",
+      text: "Learn and teach with high-quality hematology specimens organized by species, class, and morphology.",
+      tags: ["Educational Archive", "Species Breadth"],
+    },
+  ];
 
   return (
-    <div className="app-info-section">
-      <div className="container">
-        {/* Hero Section */}
-        <div className="hero-section">
-          <div className="hero-content">
-            <h1 className="hero-title">
-              Advanced Blood Smear Analysis Platform
-            </h1>
-            <p className="hero-subtitle">
-              Empowering veterinarians and researchers with comprehensive hematological 
-              image management and analysis tools
-            </p>
-            <div className="brand-slogan">
-              <span>Exceptional Care, Education and Innovation</span>
-            </div>
-            <div className="hero-buttons">
-              <button className="btn btn-primary btn-large" onClick={handleGetStarted}>
-                Get Started
-              </button>
-              <button className="btn btn-secondary btn-large" onClick={handleSignIn}>
-                Sign In
-              </button>
-            </div>
+    <div className="ais-page">
+
+      {/* ── Stats bar ── */}
+      <div className="ais-statsbar" role="region" aria-label="Collection statistics">
+        <div className="ais-statsbar__inner">
+          <div className="ais-stat">
+            <span className="ais-stat__num">12+</span>
+            <span className="ais-stat__label">Species</span>
           </div>
-          <div className="hero-visual">
-            <div className="feature-preview">
-              <div className="preview-item">
-                <div className="preview-icon">🔬</div>
-                <span>Full Slide Images</span>
-              </div>
-              <div className="preview-item">
-                <div className="preview-icon">📸</div>
-                <span>Cellavision</span>
-              </div>
-              <div className="preview-item">
-                <div className="preview-icon">🔍</div>
-                <span>Analysis Tools</span>
-              </div>
-            </div>
+          <span className="ais-stat__div" aria-hidden="true" />
+          <div className="ais-stat">
+            <span className="ais-stat__num">3</span>
+            <span className="ais-stat__label">Animal Classes</span>
+          </div>
+          <span className="ais-stat__div" aria-hidden="true" />
+          <div className="ais-stat">
+            <span className="ais-stat__num">Expert</span>
+            <span className="ais-stat__label">Reviewed Dataset</span>
+          </div>
+          <span className="ais-stat__div" aria-hidden="true" />
+          <div className="ais-stat">
+            <span className="ais-stat__num">UC&nbsp;Davis</span>
+            <span className="ais-stat__label">Veterinary Medicine</span>
           </div>
         </div>
-
-        {/* Main Options Section */}
-        <div className="main-options-section">
-          <div className="options-grid">
-            <div className="option-card" onClick={() => navigate('/species/browse')}>
-              <div className="option-icon">🔍</div>
-              <h3>Explore & Search Cases</h3>
-              <p>
-                Browse and search our comprehensive database of blood smear cases 
-                from various animal species with detailed taxonomic information.
-              </p>
-              <div className="option-features">
-                <span>View Blood Smear Images of Exotic Animals</span>
-                <span>Advanced Search & Filtering</span>
-              </div>
-              <button className="option-btn">
-              </button>
-            </div>
-            
-            <div className="option-card" onClick={() => navigate('/contribute')}>
-              <div className="option-icon">📤</div>
-              <h3>Contribute to the Database</h3>
-              <p>
-                Share your blood smear images and help build a comprehensive 
-                resource for the veterinary community. All contributions are reviewed by experts.
-              </p>
-              <div className="option-features">
-                <span>Upload Full Slide Images</span>
-                <span>Share Cellavision Captures</span>
-                <span>Expert Review Process</span>
-              </div>
-              <button className="option-btn">
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Features Grid */}
-        <div className="features-section">
-          <h2 className="section-title">Platform Features</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">📤</div>
-              <h3>Image Upload & Management</h3>
-              <p>
-                Upload and organize full slide images and Cellavision captures with 
-                advanced metadata tagging and categorization systems.
-              </p>
-              <ul className="feature-list">
-                <li>Multiple image format support</li>
-                <li>Batch upload capabilities</li>
-                <li>Secure cloud storage</li>
-              </ul>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">🖼️</div>
-              <h3>Image Bank & Browsing</h3>
-              <p>
-                Comprehensive image library with advanced search, filtering, and 
-                browsing capabilities for research and reference purposes.
-              </p>
-              <ul className="feature-list">
-                <li>Advanced search algorithms</li>
-                <li>Category-based filtering</li>
-                <li>High-resolution viewing</li>
-              </ul>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">🤝</div>
-              <h3>Community Contribution</h3>
-              <p>
-                You can contribute to the database by sharing your blood smear images 
-                and helping build a comprehensive resource for the veterinary community.
-              </p>
-              <ul className="feature-list">
-                <li>Share your expertise</li>
-                <li>Collaborate with peers</li>
-                <li>Build community knowledge</li>
-              </ul>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Use Cases Section */}
-        <div className="use-cases-section">
-          <h2 className="section-title">Who Benefits</h2>
-          <div className="use-cases-grid">
-            <div className="use-case-card">
-              <div className="use-case-icon">👨‍⚕️</div>
-              <h3>Veterinarians</h3>
-              <p>
-                Enhance diagnostic accuracy with access to a comprehensive 
-                library of blood smear images and advanced analysis tools.
-              </p>
-              <div className="use-case-features">
-                <span>Diagnostic Support</span>
-                <span>Case Management</span>
-                <span>Reference Library</span>
-              </div>
-            </div>
-
-            <div className="use-case-card">
-              <div className="use-case-icon">🔬</div>
-              <h3>Researchers</h3>
-              <p>
-                Conduct groundbreaking research with access to extensive 
-                image datasets and collaborative analysis tools.
-              </p>
-              <div className="use-case-features">
-                <span>Data Analysis</span>
-                <span>Collaboration</span>
-                <span>Publication Support</span>
-              </div>
-            </div>
-
-            <div className="use-case-card">
-              <div className="use-case-icon">🎓</div>
-              <h3>Students & Educators</h3>
-              <p>
-                Learn and teach with access to high-quality educational 
-                resources and interactive learning tools.
-              </p>
-              <div className="use-case-features">
-                <span>Educational Resources</span>
-                <span>Interactive Learning</span>
-                <span>Assessment Tools</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-
       </div>
 
-      {/* Login Modal */}
-      {isLoginModalOpen && (
-        <div className="modal-overlay" onClick={closeLoginModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Sign In</h3>
-              <button className="modal-close" onClick={closeLoginModal}>×</button>
-            </div>
-            <div className="modal-body">
-              <form className="auth-form">
-                <div className="form-group">
-                  <label htmlFor="email">Email</label>
-                  <input type="email" id="email" placeholder="Enter your email" required />
+      {/* ── Action cards ── */}
+      <section className="ais-actions" aria-label="Main entry points">
+        <div className="ais-section-inner">
+          <h2 className="ais-section-heading">Get Started</h2>
+          <div className="ais-actions__grid">
+            {actions.map((a) => (
+              <button
+                key={a.title}
+                className="ais-action-card"
+                onClick={() => navigate(a.path)}
+                style={{ '--card-accent': a.accentVar }}
+                aria-label={a.cta}
+              >
+                <div className="ais-action-card__icon-wrap">
+                  {a.icon}
                 </div>
-                <div className="form-group">
-                  <label htmlFor="password">Password</label>
-                  <input type="password" id="password" placeholder="Enter your password" required />
+                <h3 className="ais-action-card__title">{a.title}</h3>
+                <p className="ais-action-card__desc">{a.description}</p>
+                <div className="ais-action-card__tags">
+                  {a.tags.map((t) => (
+                    <span key={t} className="ais-chip">{t}</span>
+                  ))}
                 </div>
-                <button type="submit" className="btn btn-primary btn-full">
-                  Sign In
-                </button>
-              </form>
-              <div className="auth-links">
-                <a href="#" className="forgot-password">Forgot Password?</a>
-                <p className="signup-prompt">
-                  Don't have an account? 
-                  <button className="link-button" onClick={() => {
-                    closeLoginModal();
-                    openRegisterModal();
-                  }}>
-                    Sign up here
-                  </button>
-                </p>
-              </div>
-            </div>
+                <span className="ais-action-card__cta">
+                  {a.cta}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              </button>
+            ))}
           </div>
         </div>
-      )}
+      </section>
 
-      {/* Register Modal */}
-      {isRegisterModalOpen && (
-        <div className="modal-overlay" onClick={closeRegisterModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create Account</h3>
-              <button className="modal-close" onClick={closeRegisterModal}>×</button>
-            </div>
-            <div className="modal-body">
-              <form className="auth-form">
-                <div className="form-group">
-                  <label htmlFor="fullName">Full Name</label>
-                  <input type="text" id="fullName" placeholder="Enter your full name" required />
+      {/* ── Audience cards ── */}
+      <section className="ais-audiences" aria-label="Who uses this database">
+        <div className="ais-section-inner">
+          <h2 className="ais-section-heading">Who Uses This Database</h2>
+          <div className="ais-audiences__grid">
+            {audiences.map((a) => (
+              <div key={a.title} className="ais-audience-card">
+                <span className="ais-audience-card__emoji" aria-hidden="true">
+                  {a.emoji}
+                </span>
+                <h3 className="ais-audience-card__title">{a.title}</h3>
+                <p className="ais-audience-card__text">{a.text}</p>
+                <div className="ais-audience-card__tags">
+                  {a.tags.map((t) => (
+                    <span key={t} className="ais-chip ais-chip--light">{t}</span>
+                  ))}
                 </div>
-                <div className="form-group">
-                  <label htmlFor="email">Email</label>
-                  <input type="email" id="email" placeholder="Enter your email" required />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="password">Password</label>
-                  <input type="password" id="password" placeholder="Create a password" required />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="userType">I am a:</label>
-                  <select id="userType" required>
-                    <option value="">Select your role</option>
-                    <option value="veterinarian">Veterinarian</option>
-                    <option value="researcher">Researcher</option>
-                    <option value="student">Student</option>
-                    <option value="educator">Educator</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <button type="submit" className="btn btn-primary btn-full">
-                  Create Account
-                </button>
-              </form>
-              <div className="auth-links">
-                <p className="signup-prompt">
-                  Already have an account? 
-                  <button className="link-button" onClick={() => {
-                    closeRegisterModal();
-                    openLoginModal();
-                  }}>
-                    Sign in here
-                  </button>
-                </p>
               </div>
-            </div>
+            ))}
           </div>
         </div>
-      )}
+      </section>
+
     </div>
   );
 };
