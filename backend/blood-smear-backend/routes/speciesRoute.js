@@ -161,6 +161,170 @@ router.get('/search', (req, res) => {
   }
 });
 
+function escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * GET /api/species/browse
+ * Search approved uploads (blood smear cases) for /species/browse.
+ * Query params (all optional except none required — empty filter returns all matching status):
+ *   q            — matches common_name, scientific_name, taxonomy.family/order/class/phylum (partial, case-insensitive)
+ *   phylum, class, order, family — exact match on taxonomy.* (case-insensitive)
+ *   genus        — first word of scientific_name
+ *   species      — specific epithet (second word of binomial)
+ *   health_status, stain — exact match (case-insensitive)
+ *   page, limit  — pagination (default page=1, limit=12, max limit=100)
+ *   include_pending — if "true", include records where approved is false (for admin tooling)
+ */
+router.get('/browse', async (req, res) => {
+  try {
+    const {
+      q,
+      phylum,
+      class: taxonomyClass,
+      order: taxonomyOrder,
+      family,
+      genus,
+      species: speciesEpithet,
+      health_status,
+      stain,
+      include_pending,
+    } = req.query;
+
+    let page = parseInt(req.query.page, 10);
+    let limit = parseInt(req.query.limit, 10);
+    if (Number.isNaN(page) || page < 1) page = 1;
+    if (Number.isNaN(limit) || limit < 1) limit = 12;
+    limit = Math.min(limit, 100);
+
+    const andParts = [{ status: 'ready_for_viewer' }];
+
+    if (include_pending !== 'true') {
+      andParts.push({ approved: true });
+    }
+
+    if (phylum && String(phylum).trim()) {
+      andParts.push({
+        'taxonomy.phylum': new RegExp(`^${escapeRegex(phylum.trim())}$`, 'i'),
+      });
+    }
+    if (taxonomyClass && String(taxonomyClass).trim()) {
+      andParts.push({
+        'taxonomy.class': new RegExp(`^${escapeRegex(taxonomyClass.trim())}$`, 'i'),
+      });
+    }
+    if (taxonomyOrder && String(taxonomyOrder).trim()) {
+      andParts.push({
+        'taxonomy.order': new RegExp(`^${escapeRegex(taxonomyOrder.trim())}$`, 'i'),
+      });
+    }
+    if (family && String(family).trim()) {
+      andParts.push({
+        'taxonomy.family': new RegExp(`^${escapeRegex(family.trim())}$`, 'i'),
+      });
+    }
+
+    if (genus && String(genus).trim()) {
+      andParts.push({
+        scientific_name: new RegExp(`^${escapeRegex(genus.trim())}\\s+`, 'i'),
+      });
+    }
+    if (speciesEpithet && String(speciesEpithet).trim()) {
+      andParts.push({
+        scientific_name: new RegExp(
+          `^\\S+\\s+${escapeRegex(speciesEpithet.trim())}$`,
+          'i'
+        ),
+      });
+    }
+
+    if (health_status && String(health_status).trim()) {
+      andParts.push({
+        health_status: new RegExp(`^${escapeRegex(health_status.trim())}$`, 'i'),
+      });
+    }
+    if (stain && String(stain).trim()) {
+      andParts.push({
+        stain: new RegExp(`^${escapeRegex(stain.trim())}$`, 'i'),
+      });
+    }
+
+    if (q && String(q).trim()) {
+      const term = escapeRegex(q.trim());
+      andParts.push({
+        $or: [
+          { common_name: new RegExp(term, 'i') },
+          { scientific_name: new RegExp(term, 'i') },
+          { 'taxonomy.phylum': new RegExp(term, 'i') },
+          { 'taxonomy.class': new RegExp(term, 'i') },
+          { 'taxonomy.order': new RegExp(term, 'i') },
+          { 'taxonomy.family': new RegExp(term, 'i') },
+        ],
+      });
+    }
+
+    const filter = { $and: andParts };
+
+    const skip = (page - 1) * limit;
+
+    const projection =
+      'job_id common_name scientific_name taxonomy health_status stain contributor collected_at source created_at approved status';
+
+    const [rawDocs, total] = await Promise.all([
+      UploadMetadata.find(filter)
+        .select(projection)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      UploadMetadata.countDocuments(filter),
+    ]);
+
+    const data = rawDocs.map((doc) => {
+      const parts = (doc.scientific_name || '').trim().split(/\s+/);
+      const genusName = parts[0] || '';
+      const speciesName = parts[1] || '';
+      const tax = doc.taxonomy || {};
+      return {
+        jobId: doc.job_id,
+        scientificName: doc.scientific_name,
+        commonName: doc.common_name,
+        class: tax.class || '',
+        order: tax.order || '',
+        family: tax.family || '',
+        phylum: tax.phylum || '',
+        genus: genusName,
+        speciesEpithet: speciesName,
+        description: '',
+        healthStatus: doc.health_status,
+        stain: doc.stain,
+        contributor: doc.contributor,
+        collectedAt: doc.collected_at,
+        source: doc.source,
+        createdAt: doc.created_at,
+      };
+    });
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit) || 0,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error browsing blood smear cases',
+      error: error.message,
+    });
+  }
+});
+
 // Get blood smear data for a specific species
 router.get('/data/:scientificName', async (req, res) => {
   try {

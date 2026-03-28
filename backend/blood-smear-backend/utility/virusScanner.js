@@ -1,17 +1,16 @@
 const NodeClam = require("clamscan");
 const path = require("path");
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+const AWS = require("aws-sdk");
 
-
-// Initialize S3 client
-const s3 = new S3Client({
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-  region: process.env.AWS_REGION,
+// Configure AWS SDK globally
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION
 });
+
+const s3 = new AWS.S3();
 
 const S3_BUCKET_RAW = process.env.S3_BUCKET_RAW;
 
@@ -38,15 +37,12 @@ async function scanS3StreamForVirusStreaming(s3Key, bucketName = S3_BUCKET_RAW) 
   try {
     const clam = await initClamAV();
     
-    // Create a command to get the object from S3
-    const command = new GetObjectCommand({
+    // Get object from S3 as a proper Readable stream (scanStream requires a stream, not a Buffer)
+    const s3Stream = s3.getObject({
       Bucket: bucketName,
       Key: s3Key
-    });
-    //execute the command
-    const response = await s3.send(command);
-    //Convert the response body to a readable stream
-    const s3Stream = response.Body;
+    }).createReadStream();
+    
     // Scan the stream
     const { isInfected, viruses } = await clam.scanStream(s3Stream);
     

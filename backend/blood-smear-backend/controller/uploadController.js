@@ -37,7 +37,7 @@ exports.uploadImage = async (req, res) => {
       const firstFile = req.files[0];
       const keyParts = firstFile.key.split('/');
       job_id = keyParts[1]; // uploads/{jobId}/whole_slide/filename
-      console.log(`Extracted job_id from S3 key: ${job_id}`);
+      console.log(`✅ Extracted job_id from S3 key: ${job_id}`);
     } 
    
     const wholeSlide = req.files.find((f) => f.fieldname === "whole_slide");

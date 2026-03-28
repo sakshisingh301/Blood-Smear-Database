@@ -2,20 +2,18 @@ const sharp = require('sharp');
 const fs = require('fs').promises;
 const path = require('path');
 const { Readable } = require('stream');
-const AWS = require("@aws-sdk/client-s3");
-const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
-const CLOUD_FRONT_DOMAIN = process.env.CLOUD_FRONT_DOMAIN ;
-// Add this new line after line 6
+const AWS = require("aws-sdk");
+const CLOUD_FRONT_DOMAIN = process.env.CLOUD_FRONT_DOMAIN;
 const STORAGE_PATH = process.env.STORAGE_PATH || path.join(__dirname, '..');
 
-// Initialize S3 client
-const s3 = new S3Client({
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-  region: process.env.AWS_REGION,
+// Configure AWS SDK globally
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION
 });
+
+const s3 = new AWS.S3();
 
 const S3_BUCKET_RAW = process.env.S3_BUCKET_RAW;
 
@@ -36,27 +34,23 @@ async function streamFullSlideImageToLocalTempFile(s3Key) {
     
     
     try {
-      const command = new GetObjectCommand({
+      const s3Stream = s3.getObject({
         Bucket: S3_BUCKET_RAW,
         Key: s3Key
-      });
-  
-      const response = await s3.send(command);
-      //create the directory if it doesn't exist
-      await fs.mkdir(path.dirname(localPath), { recursive: true });
-      //write the images to this local path (/temp_dzi/input_1234567890_image.tif)
-      const writeStream = require('fs').createWriteStream(localPath);
-
-  //once all the chunks are written to the disk, Nodejs stream will return a finish event and the promise is resolved
-  //else if there is an error, the promise is rejected
-      await new Promise((resolve, reject) => {
-          response.Body.pipe(writeStream)
-              .on('finish', () => {
-                  console.log(`✅ Downloaded to disk: ${localPath}`);
-                  resolve();
-              })
-              .on('error', reject);
-      });
+    }).createReadStream();
+    
+    await fs.mkdir(path.dirname(localPath), { recursive: true });
+    const writeStream = require('fs').createWriteStream(localPath);
+    
+    await new Promise((resolve, reject) => {
+        s3Stream.pipe(writeStream)
+            .on('finish', () => {
+                console.log(`✅ Downloaded to disk: ${localPath}`);
+                resolve();
+            })
+            .on('error', reject);
+        s3Stream.on('error', reject);  // Also handle S3 stream errors
+    });
       
       return localPath;  // path of the local file where input image is saved
       
@@ -121,12 +115,12 @@ const outputDir = path.join(STORAGE_PATH, 'temp_dzi', `output_full_slide_${Date.
   const dziFileBuffer = await fs.readFile(`${dziPath}.dzi`);
   const dziS3Key = `processed/${job_id}/full_slide_dzi/${dziId}/scene0_z0_c0.dzi`;
   
-  await s3.send(new PutObjectCommand({
+  await s3.putObject({
       Bucket: S3_BUCKET_RAW, 
       Key: dziS3Key,
       Body: dziFileBuffer,
       ContentType: 'application/xml'
-  }));
+  }).promise();
   
   console.log(`☁️ Uploading tiles to raw bucket...`);
   
@@ -156,12 +150,12 @@ const outputDir = path.join(STORAGE_PATH, 'temp_dzi', `output_full_slide_${Date.
               const tileBuffer = await fs.readFile(path.join(levelPath, tile));
               const tileS3Key = `processed/${job_id}/full_slide_dzi/${dziId}/scene0_z0_c0_files/${level}/${tile}`;
               
-              await s3.send(new PutObjectCommand({
+              await s3.putObject({
                   Bucket: S3_BUCKET_RAW,  
                   Key: tileS3Key,
                   Body: tileBuffer,
                   ContentType: 'image/jpeg'
-              }));
+              }).promise();
           };
           
           uploadTasks.push({ level, task: uploadTask });

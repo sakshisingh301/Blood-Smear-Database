@@ -6,13 +6,20 @@ const uploadRoute = require("./routes/uploadImagesRoute");
 const getUploadRoute = require("./routes/getUploadImageRoute");
 const speciesRoute = require("./routes/speciesRoute");
 const { connectProducer } = require("./Kafka/KafkaClient");
+require('./Kafka/Consumer');
 const cors = require("cors");
 
 
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:5173', // Your frontend URL
+  origin: [
+    'http://localhost:5173',  // Local dev
+    'http://localhost:4173',  // Vite preview
+    'http://blood-smear-frontend.s3-website-us-west-1.amazonaws.com',  // S3 (HTTP)
+    'https://blood-smear-frontend.s3-website-us-west-1.amazonaws.com', // S3 (HTTPS)
+  ],
+ 
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
