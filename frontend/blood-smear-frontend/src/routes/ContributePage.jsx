@@ -1,1027 +1,910 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import UCDavisNavbar from '../Component/UCDavisNavbar';
 import './ContributePage.css';
 
-const ContributePage = () => {
-  const navigate = useNavigate();
-  const [uploadType, setUploadType] = useState('fullSlide');
+const phylumClassMapping = {
+  Chordata: ['Actinopterygii', 'Amphibia', 'Aves', 'Chondrichthyes', 'Mammalia', 'Reptilia', 'Sarcopterygii'],
+  Arthropoda: ['Arachnida', 'Branchiopoda', 'Chilopoda', 'Diplopoda', 'Insecta', 'Malacostraca', 'Merostomata', 'Myriapoda'],
+  Mollusca: ['Bivalvia', 'Cephalopoda', 'Gastropoda', 'Polyplacophora'],
+  Annelida: ['Clitellata', 'Polychaeta'],
+  Echinodermata: ['Asteroidea', 'Echinoidea', 'Holothuroidea', 'Ophiuroidea'],
+  Platyhelminthes: ['Cestoda', 'Monogenea', 'Trematoda', 'Turbellaria'],
+  Nematoda: ['Chromadorea', 'Enoplea'],
+  Cnidaria: ['Anthozoa', 'Hydrozoa', 'Scyphozoa'],
+};
 
-  // Taxonomic classification data
-  const phylumClassMapping = {
-    'Porifera': ['Calcarea', 'Demospongiae', 'Hexactinellida'],
-    'Cnidaria': ['Anthozoa', 'Scyphozoa', 'Cubozoa', 'Hydrozoa', 'Staurozoa'],
-    'Ctenophora': ['Tentaculata', 'Nuda'],
-    'Platyhelminthes': ['Turbellaria', 'Trematoda', 'Cestoda', 'Monogenea'],
-    'Nematoda': ['Chromadorea', 'Enoplea'],
-    'Rotifera': ['Monogononta', 'Bdelloidea'],
-    'Annelida': ['Polychaeta', 'Oligochaeta', 'Hirudinea'],
-    'Mollusca': ['Gastropoda', 'Bivalvia', 'Cephalopoda', 'Polyplacophora', 'Monoplacophora', 'Scaphopoda', 'Solenogastres', 'Caudofoveata'],
-    'Arthropoda': ['Insecta', 'Arachnida', 'Merostomata', 'Pycnogonida', 'Chilopoda', 'Diplopoda', 'Pauropoda', 'Symphyla', 'Malacostraca', 'Branchiopoda', 'Maxillopoda', 'Ostracoda', 'Remipedia', 'Cephalocarida', 'Hexanauplia'],
-    'Echinodermata': ['Asteroidea', 'Ophiuroidea', 'Echinoidea', 'Holothuroidea', 'Crinoidea'],
-    'Chordata': ['Mammalia', 'Aves', 'Reptilia', 'Amphibia', 'Osteichthyes', 'Chondrichthyes', 'Agnatha', 'Ascidiacea', 'Thaliacea', 'Larvacea', 'Cephalochordata']
-  };
-  
+const ContributePage = () => {
+  const [uploadType, setUploadType] = useState('fullSlide');
   const [formData, setFormData] = useState({
-    // Common metadata
     common_name: '',
     scientific_name: '',
     phylum: '',
     class: '',
     order: '',
     family: '',
-    health_status: '',
-    stain: '',
-    contributor: '',
-    collected_at: '',
-    source: '',
-    
-    // New optional fields
+    genus: '',
+    species: '',
     sex: '',
-    age_years: '',
-    age_months: '',
-    age_days: '',
+    age_value: '',
+    age_unit: 'years',
+    health_status: '',
+    collection_date: '',
+    location: '',
+    stain_type: '',
     magnification: '',
-    scanner_type: '',
-    disease: '',
-    stain_other: '',
-    phylum_other: '',
-    
-    // Full slide specific
-    fullSlideImage: null,
-    
-    // Cellavision specific
-    cellTypes: [
-      {
-        type: 'Neutrophil',
-        images: [],
-        count: 0
-      },
-      {
-        type: 'Lymphocyte',
-        images: [],
-        count: 0
-      },
-      {
-        type: 'Monocyte',
-        images: [],
-        count: 0
-      },
-      {
-        type: 'Eosinophil',
-        images: [],
-        count: 0
-      },
-      {
-        type: 'Basophil',
-        images: [],
-        count: 0
-      },
-      {
-        type: 'Platelet',
-        images: [],
-        count: 0
-      },
-      {
-        type: 'Red Blood Cell',
-        images: [],
-        count: 0
-      }
-    ]
+    additional_notes: '',
+    uploaded_by: '',
+    institution: '',
+    imaging_system: '',
+    animal_id: '',
+    weight: '',
+    body_condition_score: '',
+    hematocrit: '',
+    total_protein: '',
   });
-
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentJobId, setCurrentJobId] = useState(null);
   const [jobStatus, setJobStatus] = useState(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
-  const [recentUploads, setRecentUploads] = useState(() => {
-    // Load recent uploads from localStorage on component mount
-    const saved = localStorage.getItem('recentContributions');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [recentUploads, setRecentUploads] = useState([]);
+  const [fullSlideImage, setFullSlideImage] = useState(null);
+  const [cellTypeImages, setCellTypeImages] = useState([
+    { cellType: 'Heterophil', images: [] },
+    { cellType: 'Eosinophil', images: [] },
+    { cellType: 'Basophil', images: [] },
+    { cellType: 'Lymphocyte', images: [] },
+    { cellType: 'Monocyte', images: [] },
+  ]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
-    // If phylum changes, reset class field
-    if (name === 'phylum') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        class: '' // Reset class when phylum changes
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    if (name === 'phylum') setFormData(prev => ({ ...prev, phylum: value, class: '' }));
   };
 
   const handleFullSlideImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({
-        ...prev,
-        fullSlideImage: file
-      }));
-    }
+    if (file) setFullSlideImage(file);
   };
 
   const handleCellTypeImageChange = (index, e) => {
-    const newFiles = Array.from(e.target.files);
-    const updatedCellTypes = [...formData.cellTypes];
-    
-    // Append new files to existing ones instead of replacing
-    updatedCellTypes[index].images = [...updatedCellTypes[index].images, ...newFiles];
-    updatedCellTypes[index].count = updatedCellTypes[index].images.length;
-    
-    setFormData(prev => ({
-      ...prev,
-      cellTypes: updatedCellTypes
-    }));
-    
-    // Clear the input so the same files can be selected again if needed
-    e.target.value = '';
+    const files = Array.from(e.target.files);
+    setCellTypeImages(prev => prev.map((ct, i) =>
+      i === index ? { ...ct, images: [...ct.images, ...files] } : ct
+    ));
   };
 
   const addCustomCellType = () => {
-    const newType = prompt('Enter custom cell type name:');
-    if (newType && newType.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        cellTypes: [
-          ...prev.cellTypes,
-          {
-            type: newType.trim(),
-            images: [],
-            count: 0
-          }
-        ]
-      }));
+    const name = prompt('Enter cell type name:');
+    if (name && name.trim()) {
+      setCellTypeImages(prev => [...prev, { cellType: name.trim(), images: [] }]);
     }
   };
 
   const removeCellType = (index) => {
-    if (formData.cellTypes.length > 1) {
-      const updatedCellTypes = formData.cellTypes.filter((_, i) => i !== index);
-      setFormData(prev => ({
-        ...prev,
-        cellTypes: updatedCellTypes
-      }));
-    }
+    setCellTypeImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const removeImage = (cellTypeIndex, imageIndex) => {
-    const updatedCellTypes = [...formData.cellTypes];
-    updatedCellTypes[cellTypeIndex].images = updatedCellTypes[cellTypeIndex].images.filter((_, i) => i !== imageIndex);
-    updatedCellTypes[cellTypeIndex].count = updatedCellTypes[cellTypeIndex].images.length;
-    
-    setFormData(prev => ({
-      ...prev,
-      cellTypes: updatedCellTypes
-    }));
+    setCellTypeImages(prev => prev.map((ct, i) =>
+      i === cellTypeIndex
+        ? { ...ct, images: ct.images.filter((_, j) => j !== imageIndex) }
+        : ct
+    ));
   };
 
   const validateForm = () => {
     const newErrors = {};
-
-    // Validate common metadata
-    if (!formData.common_name.trim()) {
-      newErrors.common_name = 'Common name is required';
+    if (!formData.common_name.trim()) newErrors.common_name = 'Common name is required';
+    if (!formData.scientific_name.trim()) newErrors.scientific_name = 'Scientific name is required';
+    if (!formData.phylum) newErrors.phylum = 'Phylum is required';
+    if (!formData.class) newErrors.class = 'Class is required';
+    if (!formData.health_status) newErrors.health_status = 'Health status is required';
+    if (!formData.stain_type.trim()) newErrors.stain_type = 'Stain type is required';
+    if (!formData.uploaded_by.trim()) newErrors.uploaded_by = 'Your name is required';
+    if (uploadType === 'fullSlide' && !fullSlideImage) {
+      newErrors.fullSlideImage = 'Please select a full slide image file';
     }
-    if (!formData.scientific_name.trim()) {
-      newErrors.scientific_name = 'Scientific name is required';
+    if (uploadType === 'cellavision') {
+      const hasImages = cellTypeImages.some(ct => ct.images.length > 0);
+      if (!hasImages) newErrors.cellTypeImages = 'Please add at least one cell image';
     }
-    if (!formData.contributor.trim()) {
-      newErrors.contributor = 'Contributor is required';
-    }
-    if (!formData.collected_at) {
-      newErrors.collected_at = 'Collection date is required';
-    }
-    if (!formData.source.trim()) {
-      newErrors.source = 'Source is required';
-    }
-
-    // Validate upload type specific requirements
-    if (uploadType === 'fullSlide') {
-      if (!formData.fullSlideImage) {
-        newErrors.fullSlideImage = 'Full slide image is required';
-      }
-    } else if (uploadType === 'cellavision') {
-      const hasImages = formData.cellTypes.some(cellType => cellType.images.length > 0);
-      if (!hasImages) {
-        newErrors.cellavision = 'At least one cell type must have images';
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      setIsSubmitting(true);
-      setJobStatus(null);
-      
-      try {
-        // Create FormData for file upload
-        const formDataToSend = new FormData();
-        
-        // Create metadata object for backend
-        const metadata = {
-          common_name: formData.common_name,
-          scientific_name: formData.scientific_name,
-          taxonomy: {
-            phylum: formData.phylum,
-            class: formData.class,
-            order: formData.order,
-            family: formData.family
-          },
-          health_status: formData.health_status,
-          stain: formData.stain,
-          contributor: formData.contributor,
-          collected_at: formData.collected_at,
-          source: formData.source,
-          // Additional optional fields (for future backend support)
-          sex: formData.sex,
-          age_years: formData.age_years,
-          age_months: formData.age_months,
-          age_days: formData.age_days,
-          magnification: formData.magnification,
-          scanner_type: formData.scanner_type,
-          disease: formData.disease,
-          stain_other: formData.stain_other,
-          phylum_other: formData.phylum_other,
-          approved: false // User contributions need approval
-        };
-
-        // Add metadata as JSON string
-        formDataToSend.append('metadata', JSON.stringify(metadata));
-
-        // Add upload type
-        formDataToSend.append('uploadType', uploadType);
-
-        if (uploadType === 'fullSlide') {
-          formDataToSend.append('whole_slide', formData.fullSlideImage);
-        } else if (uploadType === 'cellavision') {
-          formData.cellTypes.forEach((cellType, index) => {
-            if (cellType.images.length > 0) {
-              cellType.images.forEach((image, imageIndex) => {
-                formDataToSend.append(`cellavision[${index}]`, image);
-              });
-              formDataToSend.append(`cell_type[${index}]`, cellType.type);
-            }
+    if (!validateForm()) return;
+    setIsSubmitting(true);
+    try {
+      const data = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== '') data.append(key, value);
+      });
+      data.append('upload_type', uploadType);
+      if (uploadType === 'fullSlide' && fullSlideImage) {
+        data.append('full_slide_image', fullSlideImage);
+      } else if (uploadType === 'cellavision') {
+        cellTypeImages.forEach(ct => {
+          ct.images.forEach(img => {
+            data.append(`cell_${ct.cellType}`, img);
           });
-        }
-
-        // Call the contribute API (different from admin upload)
-        const response = await fetch('/api/upload/contribute', {
-          method: 'POST',
-          body: formDataToSend
         });
-
-        const result = await response.json();
-        
-        if (response.ok) {
-          const newJobId = result.job_id;
-          setCurrentJobId(newJobId);
-          setJobStatus({
-            status: 'received',
-            message: result.message,
-            job_id: newJobId
-          });
-          
-          // Add to recent contributions
-          const newContribution = {
-            id: newJobId,
-            timestamp: new Date().toISOString(),
-            specimen: formData.common_name || 'Unknown Specimen',
-            type: uploadType === 'fullSlide' ? 'Full Slide' : 'Cellavision',
-            status: 'pending_review'
-          };
-          
-          const updatedContributions = [newContribution, ...recentUploads.slice(0, 4)]; // Keep last 5 contributions
-          setRecentUploads(updatedContributions);
-          // Save to localStorage
-          localStorage.setItem('recentContributions', JSON.stringify(updatedContributions));
-          
-          // Show success message and redirect to job status page
-          setTimeout(() => {
-            navigate('/job-status', { 
-              state: { 
-                jobId: newJobId,
-                showSuccessMessage: true,
-                isContribution: true
-              } 
-            });
-          }, 2000);
-          
-          // Reset form after successful upload
-          setFormData({
-            common_name: '',
-            scientific_name: '',
-            phylum: '',
-            class: '',
-            order: '',
-            family: '',
-            health_status: '',
-            stain: '',
-            contributor: '',
-            collected_at: '',
-            source: '',
-            sex: '',
-            age_years: '',
-            age_months: '',
-            age_days: '',
-            magnification: '',
-            scanner_type: '',
-            disease: '',
-            stain_other: '',
-            phylum_other: '',
-            fullSlideImage: null,
-            cellTypes: [
-              { type: 'Neutrophil', images: [], count: 0 },
-              { type: 'Lymphocyte', images: [], count: 0 },
-              { type: 'Monocyte', images: [], count: 0 },
-              { type: 'Eosinophil', images: [], count: 0 },
-              { type: 'Basophil', images: [], count: 0 },
-              { type: 'Platelet', images: [], count: 0 },
-              { type: 'Red Blood Cell', images: [], count: 0 }
-            ]
-          });
-        } else {
-          alert(`Contribution failed: ${result.message || 'Unknown error'}`);
-        }
-        
-      } catch (error) {
-        console.error('Contribution error:', error);
-        alert('Contribution failed. Please try again.');
-      } finally {
-        setIsSubmitting(false);
       }
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: data,
+      });
+      const result = await response.json();
+      if (response.ok) {
+        setCurrentJobId(result.jobId);
+        setRecentUploads(prev => [...prev, { jobId: result.jobId, commonName: formData.common_name, status: 'queued' }]);
+      } else {
+        setErrors({ submit: result.message || 'Upload failed. Please try again.' });
+      }
+    } catch {
+      setErrors({ submit: 'Network error. Please check your connection and try again.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const checkJobStatus = async () => {
-    if (!currentJobId) return;
-    
+  const checkJobStatus = async (jobId) => {
     setIsCheckingStatus(true);
     try {
-      const response = await fetch(`/api/job-status/${currentJobId}`);
+      const response = await fetch(`/api/jobs/${jobId}`);
       const result = await response.json();
-      
       if (response.ok) {
         setJobStatus(result);
-      } else {
-        alert(`Failed to check status: ${result.message || 'Unknown error'}`);
+        setRecentUploads(prev => prev.map(u => u.jobId === jobId ? { ...u, status: result.status } : u));
       }
-    } catch (error) {
-      console.error('Status check error:', error);
-      alert('Failed to check contribution status. Please try again.');
+    } catch {
+      // silently fail
     } finally {
       setIsCheckingStatus(false);
     }
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'received':
-        return '#3b82f6'; // Blue
-      case 'processing':
-        return '#f59e0b'; // Amber
-      case 'completed':
-        return '#10b981'; // Green
-      case 'failed':
-        return '#ef4444'; // Red
-      default:
-        return '#6b7280'; // Gray
-    }
+    if (status === 'completed') return '#1a6b3c';
+    if (status === 'failed') return '#b91c1c';
+    if (status === 'processing') return '#b45309';
+    return '#4b5563';
   };
 
   const getStatusIcon = (status) => {
-    switch (status) {
-      case 'received':
-        return '📥';
-      case 'processing':
-        return '⚙️';
-      case 'completed':
-        return '✅';
-      case 'failed':
-        return '❌';
-      default:
-        return '❓';
-    }
+    if (status === 'completed') return '✓';
+    if (status === 'failed') return '✗';
+    if (status === 'processing') return '⟳';
+    return '…';
   };
 
-  return (
-    <div className="contribute-page">
-      <UCDavisNavbar />
-      
-      <div className="contribute-container">
-        <div className="contribute-header">
-          <div className="header-content">
-            <div className="header-text">
-              <h1>Contribute to the Database</h1>
-              <p>Share your blood smear images to help build a comprehensive resource for the veterinary community</p>
-            </div>
-            <div className="header-right">
-              <Link to="/" className="go-home-btn">
-                🏠 Home
-              </Link>
-            </div>
-          </div>
-        </div>
+  const availableClasses = formData.phylum ? (phylumClassMapping[formData.phylum] || []) : [];
 
-        {/* Contribution Success Message */}
-        {jobStatus && jobStatus.status === 'received' && (
-          <div className="contribute-success-container">
-            <div className="success-content">
-              <div className="success-icon">✅</div>
-              <h3>Contribution Submitted!</h3>
-              <p className="success-message">{jobStatus.message}</p>
-              <div className="job-id-display">
-                <strong>Submission ID:</strong> <span className="job-id">{jobStatus.job_id}</span>
-                <button 
-                  className="copy-job-id-btn"
-                  onClick={() => {
-                    navigator.clipboard.writeText(jobStatus.job_id);
-                    // Show temporary success message
-                    const btn = document.querySelector('.copy-job-id-btn');
-                    const originalText = btn.textContent;
-                    btn.textContent = 'Copied!';
-                    btn.style.background = '#10b981';
-                    setTimeout(() => {
-                      btn.textContent = originalText;
-                      btn.style.background = '';
-                    }, 2000);
-                  }}
-                  title="Copy Submission ID to clipboard"
-                >
-                  📋 Copy
-                </button>
-              </div>
-              <div className="review-notice">
-                <h4>📋 Review Process</h4>
-                <p>Your contribution will be reviewed by our team before being added to the database. This process typically takes 2-3 business days.</p>
-              </div>
-              <p className="redirect-message">
-                Redirecting to submission status page in a few seconds...
+  return (
+    <div className="cp-page">
+      <UCDavisNavbar />
+
+      {/* ── Hero ── */}
+      <div className="cp-hero">
+        <div className="cp-hero__inner">
+          <p className="cp-hero__eyebrow">UC Davis Blood Smear Database</p>
+          <h1 className="cp-hero__title">Contribute to the Database</h1>
+          <p className="cp-hero__sub">
+            Submit blood smear specimens to advance comparative hematology research. All contributions
+            are reviewed by our team before being added to the public archive.
+          </p>
+        </div>
+        <Link to="/" className="cp-hero__back">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Back to Home
+        </Link>
+      </div>
+
+      <div className="cp-body">
+
+        {/* ── Success state ── */}
+        {currentJobId && (
+          <div className="cp-success">
+            <div className="cp-success__icon">✓</div>
+            <div className="cp-success__content">
+              <h2 className="cp-success__title">Submission Received</h2>
+              <p className="cp-success__msg">
+                Your specimen has been queued for processing. Job ID: <strong>{currentJobId}</strong>
               </p>
-              <div className="redirect-actions">
-                <button 
-                  className="view-status-btn"
-                  onClick={() => navigate('/job-status', { 
-                    state: { 
-                      jobId: jobStatus.job_id,
-                      isContribution: true
-                    } 
-                  })}
-                >
-                  View Submission Status
-                </button>
-                <button 
-                  className="contribute-another-btn"
-                  onClick={() => {
-                    setJobStatus(null);
-                    setCurrentJobId(null);
-                  }}
-                >
-                  Contribute Another Image
-                </button>
-              </div>
+              <button
+                className="cp-btn cp-btn--primary"
+                onClick={() => checkJobStatus(currentJobId)}
+                disabled={isCheckingStatus}
+              >
+                {isCheckingStatus ? 'Checking…' : 'Check Status'}
+              </button>
+              {jobStatus && (
+                <p className="cp-success__status" style={{ color: getStatusColor(jobStatus.status) }}>
+                  {getStatusIcon(jobStatus.status)} {jobStatus.status}
+                  {jobStatus.message ? ` — ${jobStatus.message}` : ''}
+                </p>
+              )}
             </div>
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="action-buttons-container">
-          <button 
-            className="recent-contributions-btn"
-            onClick={() => navigate('/recent-contributions')}
-            title="View recent contributions and Submission IDs"
-          >
-            📋 Recent Contributions {recentUploads.length > 0 && `(${recentUploads.length})`}
-          </button>
-        </div>
+        {/* ── Recent uploads toolbar ── */}
+        {recentUploads.length > 0 && (
+          <div className="cp-toolbar">
+            <span className="cp-toolbar__label">Recent uploads</span>
+            {recentUploads.map(u => (
+              <button
+                key={u.jobId}
+                className="cp-toolbar__btn"
+                onClick={() => checkJobStatus(u.jobId)}
+              >
+                {u.commonName}
+                <span className="cp-toolbar__badge" style={{ background: getStatusColor(u.status) }}>
+                  {getStatusIcon(u.status)} {u.status}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
-        {/* Contribution Guidelines */}
-        <div className="guidelines-container">
-          <h2>Contribution Guidelines</h2>
-          <div className="guidelines-content">
-            <div className="guideline-item">
-              <div className="guideline-icon">📸</div>
-              <h3>Image Quality</h3>
-              <p>Ensure your images are clear, well-focused, and properly stained for accurate analysis.</p>
+        {/* ── Submission guidelines ── */}
+        <section className="cp-guidelines-section" aria-labelledby="cp-guidelines-heading">
+          <h2 id="cp-guidelines-heading" className="cp-guidelines-section__heading">Submission Guidelines</h2>
+          <div className="cp-guidelines">
+            <div className="cp-guideline">
+              <span className="cp-guideline__icon" aria-hidden="true">🔬</span>
+              <h3 className="cp-guideline__title">Image Quality</h3>
+              <p className="cp-guideline__text">
+                Submit images captured at 1000× magnification with consistent lighting and focus.
+                Accepted formats: TIFF, NDPI, SVS, PNG, JPEG.
+              </p>
             </div>
-            <div className="guideline-item">
-              <div className="guideline-icon">📝</div>
-              <h3>Complete Metadata</h3>
-              <p>Provide accurate species identification and collection information to help other researchers.</p>
+            <div className="cp-guideline">
+              <span className="cp-guideline__icon" aria-hidden="true">📋</span>
+              <h3 className="cp-guideline__title">Metadata Accuracy</h3>
+              <p className="cp-guideline__text">
+                Provide accurate taxonomy and specimen details. Scientific names must follow
+                standard binomial nomenclature. All required fields must be completed.
+              </p>
             </div>
-            <div className="guideline-item">
-              <div className="guideline-icon">🔍</div>
-              <h3>Review Process</h3>
-              <p>All contributions are reviewed by experts before being added to the public database.</p>
+            <div className="cp-guideline">
+              <span className="cp-guideline__icon" aria-hidden="true">⚖️</span>
+              <h3 className="cp-guideline__title">Ethical Standards</h3>
+              <p className="cp-guideline__text">
+                Specimens must have been collected in compliance with all applicable regulations.
+                By submitting you confirm proper authorization for data sharing.
+              </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="upload-type-selector">
-          <h2>Select Upload Type</h2>
-          <div className="upload-type-buttons">
+        {/* ── Upload type selector ── */}
+        <section className="cp-type-section" aria-labelledby="cp-type-heading">
+          <h2 id="cp-type-heading" className="cp-type-section__heading">Select Upload Type</h2>
+          <div className="cp-type-grid">
             <button
               type="button"
-              className={`upload-type-btn ${uploadType === 'fullSlide' ? 'active' : ''}`}
+              className={`cp-type-card${uploadType === 'fullSlide' ? ' cp-type-card--selected' : ''}`}
+              aria-pressed={uploadType === 'fullSlide'}
               onClick={() => setUploadType('fullSlide')}
             >
-              Full Slide Image
+              {uploadType === 'fullSlide' && <span className="cp-type-card__check" aria-hidden="true">✓</span>}
+              <span className="cp-type-card__icon" aria-hidden="true">🔬</span>
+              <span className="cp-type-card__label">Full Slide Image</span>
+              <span className="cp-type-card__desc">
+                Single whole-slide image file (TIFF, NDPI, SVS). Best for high-resolution scans
+                from digital slide scanners.
+              </span>
             </button>
             <button
               type="button"
-              className={`upload-type-btn ${uploadType === 'cellavision' ? 'active' : ''}`}
+              className={`cp-type-card${uploadType === 'cellavision' ? ' cp-type-card--selected' : ''}`}
+              aria-pressed={uploadType === 'cellavision'}
               onClick={() => setUploadType('cellavision')}
             >
-              Cellavision Images
+              {uploadType === 'cellavision' && <span className="cp-type-card__check" aria-hidden="true">✓</span>}
+              <span className="cp-type-card__icon" aria-hidden="true">🧫</span>
+              <span className="cp-type-card__label">Cellavision Images</span>
+              <span className="cp-type-card__desc">
+                Multiple cell images organized by cell type from a Cellavision analyzer or
+                manual microscopy with individual cell captures.
+              </span>
             </button>
           </div>
-        </div>
+        </section>
 
-        <div className="upload-form-container">
-          <form onSubmit={handleSubmit} className="upload-form">
-            {/* Common Metadata Section */}
-            <div className="form-section">
-              <h3>Specimen Information</h3>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="common_name">Common Name *</label>
+        {/* ── Main form ── */}
+        <div className="cp-form-card">
+          {errors.submit && (
+            <div className="cp-form-error" role="alert">{errors.submit}</div>
+          )}
+          <form onSubmit={handleSubmit} noValidate>
+
+            {/* Section 1 — Basic Information */}
+            <fieldset className="cp-fsec">
+              <legend className="cp-fsec__legend">
+                <span className="cp-fsec__num">1</span>
+                <div>
+                  <span className="cp-fsec__title">Basic Information</span>
+                  <span className="cp-fsec__sub">Identify the specimen by name</span>
+                </div>
+              </legend>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="common_name">
+                    Common Name <span className="cp-req" aria-hidden="true">*</span>
+                  </label>
                   <input
-                    type="text"
                     id="common_name"
                     name="common_name"
+                    className={`cp-input${errors.common_name ? ' cp-input--error' : ''}`}
+                    type="text"
                     value={formData.common_name}
                     onChange={handleInputChange}
-                    className={errors.common_name ? 'error' : ''}
-                    placeholder="e.g., Somali Ostrich"
+                    placeholder="e.g. African Elephant"
                   />
-                  {errors.common_name && <span className="error-message">{errors.common_name}</span>}
+                  <span className="cp-hint">The common or vernacular species name</span>
+                  {errors.common_name && <span className="cp-error" role="alert">{errors.common_name}</span>}
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="scientific_name">Scientific Name *</label>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="scientific_name">
+                    Scientific Name <span className="cp-req" aria-hidden="true">*</span>
+                  </label>
                   <input
-                    type="text"
                     id="scientific_name"
                     name="scientific_name"
+                    className={`cp-input${errors.scientific_name ? ' cp-input--error' : ''}`}
+                    type="text"
                     value={formData.scientific_name}
                     onChange={handleInputChange}
-                    className={errors.scientific_name ? 'error' : ''}
-                    placeholder="e.g., Struthio molybdophanes"
+                    placeholder="e.g. Loxodonta africana"
                   />
-                  {errors.scientific_name && <span className="error-message">{errors.scientific_name}</span>}
+                  <span className="cp-hint">Binomial nomenclature (Genus species)</span>
+                  {errors.scientific_name && <span className="cp-error" role="alert">{errors.scientific_name}</span>}
                 </div>
               </div>
+            </fieldset>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="phylum">Phylum</label>
+            {/* Section 2 — Taxonomy */}
+            <fieldset className="cp-fsec">
+              <legend className="cp-fsec__legend">
+                <span className="cp-fsec__num">2</span>
+                <div>
+                  <span className="cp-fsec__title">Taxonomy</span>
+                  <span className="cp-fsec__sub">Taxonomic classification of the specimen</span>
+                </div>
+              </legend>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="phylum">
+                    Phylum <span className="cp-req" aria-hidden="true">*</span>
+                  </label>
                   <select
                     id="phylum"
                     name="phylum"
+                    className={`cp-select${errors.phylum ? ' cp-input--error' : ''}`}
                     value={formData.phylum}
                     onChange={handleInputChange}
                   >
-                    <option value="">Select phylum</option>
-                    <option value="Porifera">Porifera (Sponges)</option>
-                    <option value="Cnidaria">Cnidaria (Jellyfish, Corals, Anemones)</option>
-                    <option value="Ctenophora">Ctenophora (Comb jellies)</option>
-                    <option value="Platyhelminthes">Platyhelminthes (Flatworms)</option>
-                    <option value="Nematoda">Nematoda (Roundworms)</option>
-                    <option value="Rotifera">Rotifera</option>
-                    <option value="Annelida">Annelida (Segmented worms)</option>
-                    <option value="Mollusca">Mollusca (Snails, Clams, Octopus, etc.)</option>
-                    <option value="Arthropoda">Arthropoda (Insects, Crustaceans, Spiders, etc.)</option>
-                    <option value="Echinodermata">Echinodermata (Starfish, Sea Urchins, etc.)</option>
-                    <option value="Chordata">Chordata (Vertebrates + a few others)</option>
-                    <option value="Other">Other</option>
+                    <option value="">Select phylum…</option>
+                    {Object.keys(phylumClassMapping).map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
                   </select>
+                  {errors.phylum && <span className="cp-error" role="alert">{errors.phylum}</span>}
                 </div>
-
-                {/* Conditional Other Phylum Field */}
-                {formData.phylum === 'Other' && (
-                  <div className="form-group">
-                    <label htmlFor="phylum_other">Specify Other Phylum</label>
-                    <input
-                      type="text"
-                      id="phylum_other"
-                      name="phylum_other"
-                      value={formData.phylum_other}
-                      onChange={handleInputChange}
-                      placeholder="e.g., Bryozoa, Brachiopoda, etc."
-                    />
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label htmlFor="class">Class</label>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="class">
+                    Class <span className="cp-req" aria-hidden="true">*</span>
+                  </label>
                   <select
                     id="class"
                     name="class"
+                    className={`cp-select${errors.class ? ' cp-input--error' : ''}`}
                     value={formData.class}
                     onChange={handleInputChange}
                     disabled={!formData.phylum}
                   >
-                    <option value="">Select class</option>
-                    {formData.phylum && phylumClassMapping[formData.phylum]?.map(className => (
-                      <option key={className} value={className}>{className}</option>
+                    <option value="">Select class…</option>
+                    {availableClasses.map(c => (
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
+                  {errors.class && <span className="cp-error" role="alert">{errors.class}</span>}
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="order">Order</label>
+              </div>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="order">Order</label>
                   <input
-                    type="text"
                     id="order"
                     name="order"
+                    className="cp-input"
+                    type="text"
                     value={formData.order}
                     onChange={handleInputChange}
-                    placeholder="e.g., Struthioniformes"
+                    placeholder="e.g. Proboscidea"
                   />
                 </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="family">Family</label>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="family">Family</label>
                   <input
-                    type="text"
                     id="family"
                     name="family"
+                    className="cp-input"
+                    type="text"
                     value={formData.family}
                     onChange={handleInputChange}
-                    placeholder="e.g., Struthionidae"
+                    placeholder="e.g. Elephantidae"
+                  />
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="genus">Genus</label>
+                  <input
+                    id="genus"
+                    name="genus"
+                    className="cp-input"
+                    type="text"
+                    value={formData.genus}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Loxodonta"
+                  />
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="species">Species</label>
+                  <input
+                    id="species"
+                    name="species"
+                    className="cp-input"
+                    type="text"
+                    value={formData.species}
+                    onChange={handleInputChange}
+                    placeholder="e.g. africana"
                   />
                 </div>
               </div>
+            </fieldset>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="health_status">Health Status</label>
+            {/* Section 3 — Specimen Details */}
+            <fieldset className="cp-fsec">
+              <legend className="cp-fsec__legend">
+                <span className="cp-fsec__num">3</span>
+                <div>
+                  <span className="cp-fsec__title">Specimen Details</span>
+                  <span className="cp-fsec__sub">Health, sex, and age at time of collection</span>
+                </div>
+              </legend>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="health_status">
+                    Health Status <span className="cp-req" aria-hidden="true">*</span>
+                  </label>
                   <select
                     id="health_status"
                     name="health_status"
+                    className={`cp-select${errors.health_status ? ' cp-input--error' : ''}`}
                     value={formData.health_status}
                     onChange={handleInputChange}
                   >
-                    <option value="">Select health status</option>
-                    <option value="Clinically Healthy">Clinically Healthy</option>
-                    <option value="Diseased">Diseased</option>
-                    <option value="Unknown">Unknown</option>
+                    <option value="">Select status…</option>
+                    <option value="healthy">Healthy</option>
+                    <option value="sick">Sick</option>
+                    <option value="deceased">Deceased</option>
+                    <option value="unknown">Unknown</option>
                   </select>
+                  {errors.health_status && <span className="cp-error" role="alert">{errors.health_status}</span>}
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="stain">Stain Type</label>
-                  <select
-                    id="stain"
-                    name="stain"
-                    value={formData.stain}
-                    onChange={handleInputChange}
-                  >
-                    <option value="">Select stain type</option>
-                    <option value="Diff-Quik">Diff-Quik</option>
-                    <option value="Wright-Giemsa">Wright-Giemsa</option>
-                    <option value="Acid-fast">Acid-fast</option>
-                    <option value="New Methylene Blue">New Methylene Blue</option>
-                    <option value="Grocott's Methenamine Silver (GMS)">Grocott's Methenamine Silver (GMS)</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                {/* Conditional Other Stain Field */}
-                {formData.stain === 'Other' && (
-                  <div className="form-group">
-                    <label htmlFor="stain_other">Specify Other Stain Type</label>
-                    <input
-                      type="text"
-                      id="stain_other"
-                      name="stain_other"
-                      value={formData.stain_other}
-                      onChange={handleInputChange}
-                      placeholder="e.g., May-Grünwald-Giemsa, Romanowsky, etc."
-                    />
-                  </div>
-                )}
-
-                {/* Conditional Disease Field */}
-                {formData.health_status === 'Diseased' && (
-                  <div className="form-group">
-                    <label htmlFor="disease">Disease Information</label>
-                    <input
-                      type="text"
-                      id="disease"
-                      name="disease"
-                      value={formData.disease}
-                      onChange={handleInputChange}
-                      placeholder="e.g., Anemia, Leukemia, Infection"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="contributor">Contributor *</label>
-                  <input
-                    type="text"
-                    id="contributor"
-                    name="contributor"
-                    value={formData.contributor}
-                    onChange={handleInputChange}
-                    className={errors.contributor ? 'error' : ''}
-                    placeholder="e.g., Dr. John Smith"
-                  />
-                  {errors.contributor && <span className="error-message">{errors.contributor}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="collected_at">Collection Date *</label>
-                  <input
-                    type="date"
-                    id="collected_at"
-                    name="collected_at"
-                    value={formData.collected_at}
-                    onChange={handleInputChange}
-                    className={errors.collected_at ? 'error' : ''}
-                  />
-                  {errors.collected_at && <span className="error-message">{errors.collected_at}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="source">Source *</label>
-                  <input
-                    type="text"
-                    id="source"
-                    name="source"
-                    value={formData.source}
-                    onChange={handleInputChange}
-                    className={errors.source ? 'error' : ''}
-                    placeholder="e.g., Wildlife Center, Zoo, Clinic"
-                  />
-                  {errors.source && <span className="error-message">{errors.source}</span>}
-                </div>
-              </div>
-
-              {/* Additional Optional Information */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="sex">Sex</label>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="sex">Sex</label>
                   <select
                     id="sex"
                     name="sex"
+                    className="cp-select"
                     value={formData.sex}
                     onChange={handleInputChange}
                   >
-                    <option value="">Select sex</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Unknown">Unknown</option>
+                    <option value="">Select sex…</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="unknown">Unknown</option>
                   </select>
                 </div>
-
-                <div className="form-group">
-                  <label>Age</label>
-                  <div className="age-inputs">
-                    <div className="age-field">
-                      <input
-                        type="number"
-                        id="age_years"
-                        name="age_years"
-                        value={formData.age_years}
-                        onChange={handleInputChange}
-                        placeholder="Years"
-                        min="0"
-                      />
-                      <label htmlFor="age_years" className="age-label">Years</label>
-                    </div>
-                    <div className="age-field">
-                      <input
-                        type="number"
-                        id="age_months"
-                        name="age_months"
-                        value={formData.age_months}
-                        onChange={handleInputChange}
-                        placeholder="Months"
-                        min="0"
-                        max="11"
-                      />
-                      <label htmlFor="age_months" className="age-label">Months</label>
-                    </div>
-                    <div className="age-field">
-                      <input
-                        type="number"
-                        id="age_days"
-                        name="age_days"
-                        value={formData.age_days}
-                        onChange={handleInputChange}
-                        placeholder="Days"
-                        min="0"
-                        max="30"
-                      />
-                      <label htmlFor="age_days" className="age-label">Days</label>
-                    </div>
+              </div>
+              <div className="cp-frow cp-frow--narrow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="age_value">Age</label>
+                  <div className="cp-age">
+                    <input
+                      id="age_value"
+                      name="age_value"
+                      className="cp-input cp-age__field"
+                      type="number"
+                      min="0"
+                      value={formData.age_value}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                    />
+                    <select
+                      name="age_unit"
+                      className="cp-select cp-age__unit"
+                      value={formData.age_unit}
+                      onChange={handleInputChange}
+                    >
+                      <option value="days">days</option>
+                      <option value="weeks">weeks</option>
+                      <option value="months">months</option>
+                      <option value="years">years</option>
+                    </select>
                   </div>
-                  <p className="age-help-text">Fill in any combination of age units (e.g., 2 years, 3 months, 15 days)</p>
                 </div>
+              </div>
+            </fieldset>
 
-                <div className="form-group">
-                  <label htmlFor="magnification">Magnification</label>
-                  <select
+            {/* Section 4 — Collection & Attribution */}
+            <fieldset className="cp-fsec">
+              <legend className="cp-fsec__legend">
+                <span className="cp-fsec__num">4</span>
+                <div>
+                  <span className="cp-fsec__title">Collection &amp; Attribution</span>
+                  <span className="cp-fsec__sub">When, where, and by whom</span>
+                </div>
+              </legend>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="uploaded_by">
+                    Your Name <span className="cp-req" aria-hidden="true">*</span>
+                  </label>
+                  <input
+                    id="uploaded_by"
+                    name="uploaded_by"
+                    className={`cp-input${errors.uploaded_by ? ' cp-input--error' : ''}`}
+                    type="text"
+                    value={formData.uploaded_by}
+                    onChange={handleInputChange}
+                    placeholder="Dr. Jane Smith"
+                  />
+                  {errors.uploaded_by && <span className="cp-error" role="alert">{errors.uploaded_by}</span>}
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="institution">Institution</label>
+                  <input
+                    id="institution"
+                    name="institution"
+                    className="cp-input"
+                    type="text"
+                    value={formData.institution}
+                    onChange={handleInputChange}
+                    placeholder="UC Davis School of Veterinary Medicine"
+                  />
+                </div>
+              </div>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="collection_date">Collection Date</label>
+                  <input
+                    id="collection_date"
+                    name="collection_date"
+                    className="cp-input"
+                    type="date"
+                    value={formData.collection_date}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="location">Collection Location</label>
+                  <input
+                    id="location"
+                    name="location"
+                    className="cp-input"
+                    type="text"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    placeholder="Davis, CA, USA"
+                  />
+                </div>
+              </div>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="stain_type">
+                    Stain Type <span className="cp-req" aria-hidden="true">*</span>
+                  </label>
+                  <input
+                    id="stain_type"
+                    name="stain_type"
+                    className={`cp-input${errors.stain_type ? ' cp-input--error' : ''}`}
+                    type="text"
+                    value={formData.stain_type}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Wright-Giemsa"
+                  />
+                  {errors.stain_type && <span className="cp-error" role="alert">{errors.stain_type}</span>}
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="magnification">Magnification</label>
+                  <input
                     id="magnification"
                     name="magnification"
+                    className="cp-input"
+                    type="text"
                     value={formData.magnification}
                     onChange={handleInputChange}
-                  >
-                    <option value="">Select magnification</option>
-                    <option value="40x">40x</option>
-                    <option value="50x">50x</option>
-                    <option value="60x">60x</option>
-                    <option value="100x">100x</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="scanner_type">Scanner Type</label>
-                  <select
-                    id="scanner_type"
-                    name="scanner_type"
-                    value={formData.scanner_type}
-                    onChange={handleInputChange}
-                  >
-                    <option value="">Select scanner type</option>
-                    <option value="Olympus">Olympus</option>
-                    <option value="Grundium">Grundium</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Upload Type Specific Section */}
-            {uploadType === 'fullSlide' && (
-              <div className="form-section">
-                <h3>Full Slide Image</h3>
-                <div className="form-group">
-                  <label htmlFor="fullSlideImage">Upload Full Slide Image *</label>
-                  <input
-                    type="file"
-                    id="fullSlideImage"
-                    name="fullSlideImage"
-                    accept=".tiff,.tif,.vsi,.ndpi,.svs"
-                    onChange={handleFullSlideImageChange}
-                    className={errors.fullSlideImage ? 'error' : ''}
+                    placeholder="e.g. 1000×"
                   />
-                  <p className="file-help">Supported formats: TIFF, VSI, NDPI, SVS</p>
-                  {errors.fullSlideImage && <span className="error-message">{errors.fullSlideImage}</span>}
                 </div>
               </div>
-            )}
+            </fieldset>
 
-            {uploadType === 'cellavision' && (
-              <div className="form-section">
-                <h3>Cellavision Images</h3>
-               
-                {formData.cellTypes.map((cellType, index) => (
-                  <div key={index} className="cell-type-section">
-                    <div className="cell-type-header">
-                      <h4>{cellType.type}</h4>
-                      <div className="cell-type-controls">
-                        <span className="image-count">{cellType.count} images</span>
-                        {formData.cellTypes.length > 1 && (
-                          <button
-                            type="button"
-                            className="remove-cell-type-btn"
-                            onClick={() => removeCellType(index)}
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="form-group">
-                      <label htmlFor={`cellType-${index}`}>
-                        Upload {cellType.type} Images
-                      </label>
-                      
-                      {/* Always show the add images button */}
-                      <div className="add-images-section">
+            {/* Section 5 — Additional Details (optional) */}
+            <fieldset className="cp-fsec cp-fsec--optional">
+              <legend className="cp-fsec__legend">
+                <span className="cp-fsec__num cp-fsec__num--opt">5</span>
+                <div>
+                  <span className="cp-fsec__title">
+                    Additional Details
+                    <span className="cp-optional-badge">Optional</span>
+                  </span>
+                  <span className="cp-fsec__sub">Imaging system, animal ID, clinical measurements</span>
+                </div>
+              </legend>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="imaging_system">Imaging System</label>
+                  <input
+                    id="imaging_system"
+                    name="imaging_system"
+                    className="cp-input"
+                    type="text"
+                    value={formData.imaging_system}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Hamamatsu NanoZoomer"
+                  />
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="animal_id">Animal ID</label>
+                  <input
+                    id="animal_id"
+                    name="animal_id"
+                    className="cp-input"
+                    type="text"
+                    value={formData.animal_id}
+                    onChange={handleInputChange}
+                    placeholder="Internal ID or tag number"
+                  />
+                </div>
+              </div>
+              <div className="cp-frow">
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="weight">Weight (kg)</label>
+                  <input
+                    id="weight"
+                    name="weight"
+                    className="cp-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.weight}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="body_condition_score">Body Condition Score</label>
+                  <input
+                    id="body_condition_score"
+                    name="body_condition_score"
+                    className="cp-input"
+                    type="number"
+                    min="1"
+                    max="9"
+                    value={formData.body_condition_score}
+                    onChange={handleInputChange}
+                    placeholder="1–9"
+                  />
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="hematocrit">Hematocrit (%)</label>
+                  <input
+                    id="hematocrit"
+                    name="hematocrit"
+                    className="cp-input"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.hematocrit}
+                    onChange={handleInputChange}
+                    placeholder="e.g. 42"
+                  />
+                </div>
+                <div className="cp-field">
+                  <label className="cp-label" htmlFor="total_protein">Total Protein (g/dL)</label>
+                  <input
+                    id="total_protein"
+                    name="total_protein"
+                    className="cp-input"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.total_protein}
+                    onChange={handleInputChange}
+                    placeholder="e.g. 6.5"
+                  />
+                </div>
+              </div>
+              <div className="cp-frow">
+                <div className="cp-field cp-field--full">
+                  <label className="cp-label" htmlFor="additional_notes">Additional Notes</label>
+                  <textarea
+                    id="additional_notes"
+                    name="additional_notes"
+                    className="cp-input cp-textarea"
+                    value={formData.additional_notes}
+                    onChange={handleInputChange}
+                    placeholder="Any additional clinical context, observations, or relevant history…"
+                    rows={4}
+                  />
+                </div>
+              </div>
+            </fieldset>
+
+            {/* Section 6 — Upload */}
+            <fieldset className="cp-fsec cp-fsec--last">
+              <legend className="cp-fsec__legend">
+                <span className="cp-fsec__num">6</span>
+                <div>
+                  <span className="cp-fsec__title">
+                    {uploadType === 'fullSlide' ? 'Full Slide Image' : 'Cell Images'}
+                  </span>
+                  <span className="cp-fsec__sub">
+                    {uploadType === 'fullSlide'
+                      ? 'Upload a single whole-slide image file'
+                      : 'Upload images organized by cell type'}
+                  </span>
+                </div>
+              </legend>
+
+              {uploadType === 'fullSlide' ? (
+                <div className="cp-frow">
+                  <div className="cp-field cp-field--full">
+                    <label className="cp-label" htmlFor="full_slide_image">
+                      Slide Image File <span className="cp-req" aria-hidden="true">*</span>
+                    </label>
+                    <label className="cp-file" htmlFor="full_slide_image">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                      </svg>
+                      <span>{fullSlideImage ? fullSlideImage.name : 'Click to select or drag and drop'}</span>
+                      <span className="cp-file__hint">TIFF, NDPI, SVS, PNG, JPEG · max 4 GB</span>
+                      <input
+                        id="full_slide_image"
+                        type="file"
+                        accept=".tiff,.tif,.ndpi,.svs,.png,.jpg,.jpeg"
+                        onChange={handleFullSlideImageChange}
+                        className="cp-file__input"
+                      />
+                    </label>
+                    {fullSlideImage && (
+                      <p className="cp-file-selected">
+                        Selected: <strong>{fullSlideImage.name}</strong> ({(fullSlideImage.size / 1024 / 1024).toFixed(1)} MB)
+                      </p>
+                    )}
+                    {errors.fullSlideImage && <span className="cp-error" role="alert">{errors.fullSlideImage}</span>}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {errors.cellTypeImages && <span className="cp-error" role="alert">{errors.cellTypeImages}</span>}
+                  {cellTypeImages.map((ct, i) => (
+                    <div key={i} className="cp-celltype">
+                      <div className="cp-celltype__head">
+                        <span className="cp-celltype__name">{ct.cellType}</span>
+                        <span className="cp-celltype__count">{ct.images.length} image{ct.images.length !== 1 ? 's' : ''}</span>
                         <button
                           type="button"
-                          className="add-images-btn"
-                          onClick={() => document.getElementById(`cellType-${index}`).click()}
+                          className="cp-celltype__remove"
+                          onClick={() => removeCellType(i)}
+                          aria-label={`Remove ${ct.cellType}`}
                         >
-                          {cellType.images.length === 0 ? '+ Add Images' : '+ Add More Images'}
+                          Remove
                         </button>
-                        <input
-                          type="file"
-                          id={`cellType-${index}`}
-                          name={`cellType-${index}`}
-                          accept=".jpg,.jpeg,.png,.tiff,.tif"
-                          multiple
-                          onChange={(e) => handleCellTypeImageChange(index, e)}
-                          style={{ display: 'none' }}
-                        />
-                        <p className="file-help">
-                          {cellType.images.length === 0 
-                            ? 'Click to select multiple images (JPG, PNG, TIFF)' 
-                            : 'Click to add more images to this cell type'
-                          }
-                        </p>
                       </div>
-                      
-                      {/* Display selected images */}
-                      {cellType.images.length > 0 && (
-                        <div className="selected-images">
-                          <div className="images-header">
-                            <h5>Selected Images ({cellType.images.length})</h5>
-                          </div>
-                          <div className="image-list">
-                            {cellType.images.map((image, imageIndex) => (
-                              <div key={imageIndex} className="image-item">
-                                <div className="image-info">
-                                  <span className="image-name">{image.name}</span>
-                                  <span className="image-size">({(image.size / 1024 / 1024).toFixed(2)} MB)</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="remove-image-btn"
-                                  onClick={() => removeImage(index, imageIndex)}
-                                  title="Remove this image"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                      <div className="cp-add-images">
+                        <label className="cp-add-images__btn" htmlFor={`cell-file-${i}`}>
+                          + Add images
+                          <input
+                            id={`cell-file-${i}`}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => handleCellTypeImageChange(i, e)}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                      </div>
+                      {ct.images.length > 0 && (
+                        <ul className="cp-image-list">
+                          {ct.images.map((img, j) => (
+                            <li key={j} className="cp-image-item">
+                              <span className="cp-image-item__name">{img.name}</span>
+                              <button
+                                type="button"
+                                className="cp-image-item__remove"
+                                onClick={() => removeImage(i, j)}
+                                aria-label={`Remove ${img.name}`}
+                              >
+                                ×
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
-                  </div>
-                ))}
-                
-                <button
-                  type="button"
-                  className="add-cell-type-btn"
-                  onClick={addCustomCellType}
-                >
-                  + Add Custom Cell Type
-                </button>
-                
-                {errors.cellavision && <span className="error-message">{errors.cellavision}</span>}
-              </div>
-            )}
+                  ))}
+                  <button type="button" className="cp-add-celltype-btn" onClick={addCustomCellType}>
+                    + Add custom cell type
+                  </button>
+                </div>
+              )}
+            </fieldset>
 
-            <button 
-              type="submit" 
-              className="contribute-btn"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Submitting for Review...' : 'Submit for Review'}
-            </button>
+            {/* Submit */}
+            <div className="cp-submit-wrap">
+              <button
+                type="submit"
+                className="cp-submit-btn"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="cp-submit-btn__spinner" aria-hidden="true" />
+                    Submitting…
+                  </>
+                ) : (
+                  'Submit Specimen'
+                )}
+              </button>
+              <p className="cp-submit-note">
+                Submissions are reviewed before being added to the public database. You will receive
+                confirmation once your specimen has been processed.
+              </p>
+            </div>
+
           </form>
         </div>
 
-        {/* Physical Submission Address */}
-        <div className="physical-address-container">
-          <h2>Physical Slide Submission</h2>
-          <div className="address-content">
-            <div className="address-icon">📬</div>
-            <div className="address-details">
-              <h3>Send Glass Slides To:</h3>
-              <div className="address-block">
-                <p><strong>Attention: Bloodsmear Library</strong></p>
-                <p>UC Davis VMTH</p>
-                <p>Clinical Laboratory Receiving, Rm 1033</p>
-                <p>1 Garrod Drive</p>
-                <p>Davis, CA 95616</p>
-              </div>
-              <p className="address-note">
-                Please include your contact information and any relevant specimen details with your physical submissions.
-              </p>
-            </div>
+        {/* ── Physical slide ── */}
+        <div className="cp-physical">
+          <div className="cp-physical__divider">
+            <span>OR</span>
+          </div>
+          <div className="cp-physical__card">
+            <span className="cp-physical__icon" aria-hidden="true">📬</span>
+            <h3 className="cp-physical__title">Send Physical Slides</h3>
+            <p className="cp-physical__sub">
+              Unable to digitize specimens? Mail physical slides directly to the laboratory.
+            </p>
+            <address className="cp-address">
+              <strong>UC Davis Blood Smear Database</strong><br />
+              Attn: Dr. Melanie Audrey Ammersbach<br />
+              School of Veterinary Medicine<br />
+              One Shields Avenue<br />
+              Davis, CA 95616, USA
+            </address>
+            <p className="cp-physical__note">
+              Please include a completed specimen information sheet with each submission.
+              Contact <a href="mailto:mammersbach@ucdavis.edu">mammersbach@ucdavis.edu</a> before mailing.
+            </p>
           </div>
         </div>
+
       </div>
     </div>
   );
