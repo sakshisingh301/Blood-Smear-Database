@@ -16,7 +16,7 @@ const SpecimenCard = ({ specimen }) => {
 
   return (
     <Link
-      to={`/species/${encodeURIComponent(specimen.scientificName)}`}
+      to={`/species/${encodeURIComponent(specimen.scientificName)}${specimen.jobId ? `?job=${specimen.jobId}` : ''}`}
       className="sc-card"
       aria-label={`View ${specimen.commonName} — ${specimen.scientificName}`}
     >
