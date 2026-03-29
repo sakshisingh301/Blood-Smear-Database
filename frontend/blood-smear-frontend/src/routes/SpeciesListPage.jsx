@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import UCDavisNavbar from '../Component/UCDavisNavbar';
 import TaxonomySidebar from '../Component/TaxonomySidebar';
 import SpecimenCard from '../Component/SpecimenCard';
 import './SpeciesListPage.css';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const ITEMS_PER_PAGE = 12;
 
 // ── Skeleton loader ────────────────────────────────────────────────────────
@@ -99,85 +100,89 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 // ── Main page ──────────────────────────────────────────────────────────────
 const SpeciesListPage = () => {
   const [searchParams] = useSearchParams();
-  const [species, setSpecies] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
-  const [selectedClass, setSelectedClass] = useState('all');
-  const [selectedOrder, setSelectedOrder] = useState('all');
-  const [selectedFamily, setSelectedFamily] = useState('all');
-  const [selectedGenus, setSelectedGenus] = useState('all');
-  const [selectedSpecies, setSelectedSpecies] = useState('all');
-  const [filteredSpecies, setFilteredSpecies] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Results state (paginated, filtered)
+  const [results, setResults]           = useState([]);
+  const [totalResults, setTotalResults] = useState(0);
+  const [totalPages, setTotalPages]     = useState(0);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
+
+  // Sidebar state (all unfiltered specimens, fetched once)
+  const [allSpecies, setAllSpecies] = useState([]);
+
+  // Filter state
+  const [searchQuery, setSearchQuery]       = useState(() => searchParams.get('q') || '');
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get('q') || '');
+  const [selectedClass, setSelectedClass]   = useState('all');
+  const [selectedOrder, setSelectedOrder]   = useState('all');
+  const [selectedFamily, setSelectedFamily] = useState('all');
+  const [selectedGenus, setSelectedGenus]   = useState('all');
+  const [selectedSpecies, setSelectedSpecies] = useState('all');
+  const [currentPage, setCurrentPage]       = useState(1);
+  const [sidebarOpen, setSidebarOpen]       = useState(false);
+
+  // Debounce search input (400 ms)
   useEffect(() => {
-    const mockSpecies = [
-      { scientificName: "Passer domesticus", commonName: "House Sparrow", class: "Aves", order: "Passeriformes", family: "Passeridae", description: "A small bird found in urban areas worldwide. House sparrows are highly adaptable and have colonized nearly every corner of the globe." },
-      { scientificName: "Canis lupus", commonName: "Gray Wolf", class: "Mammalia", order: "Carnivora", family: "Canidae", description: "A large carnivorous mammal native to wilderness areas. Gray wolves are apex predators and live in complex social structures called packs." },
-      { scientificName: "Felis catus", commonName: "Domestic Cat", class: "Mammalia", order: "Carnivora", family: "Felidae", description: "A small domesticated carnivorous mammal. Cats have been associated with humans for at least 9,500 years." },
-      { scientificName: "Tyto alba", commonName: "Barn Owl", class: "Aves", order: "Strigiformes", family: "Tytonidae", description: "A pale-colored owl found on every continent except Antarctica. Barn owls are known for their heart-shaped facial disk." },
-      { scientificName: "Panthera leo", commonName: "Lion", class: "Mammalia", order: "Carnivora", family: "Felidae", description: "A large cat species native to Africa and India. Lions are the only cats that live in groups called prides." },
-      { scientificName: "Aquila chrysaetos", commonName: "Golden Eagle", class: "Aves", order: "Accipitriformes", family: "Accipitridae", description: "A large bird of prey found across the Northern Hemisphere. Golden eagles are among the largest and most formidable raptors." },
-      { scientificName: "Vulpes vulpes", commonName: "Red Fox", class: "Mammalia", order: "Carnivora", family: "Canidae", description: "The largest of the true foxes and most widespread carnivore in the world. Red foxes are highly adaptable to various environments." },
-      { scientificName: "Corvus corax", commonName: "Common Raven", class: "Aves", order: "Passeriformes", family: "Corvidae", description: "One of the largest and most intelligent bird species. Ravens are known for their problem-solving abilities and complex vocalizations." },
-      { scientificName: "Ursus arctos", commonName: "Brown Bear", class: "Mammalia", order: "Carnivora", family: "Ursidae", description: "A large bear species found across Eurasia and North America. Brown bears are omnivores with a varied diet." },
-      { scientificName: "Falco peregrinus", commonName: "Peregrine Falcon", class: "Aves", order: "Falconiformes", family: "Falconidae", description: "The fastest animal on Earth when diving. Peregrine falcons can reach speeds over 240 mph during their hunting stoop." },
-      { scientificName: "Equus ferus", commonName: "Domestic Horse", class: "Mammalia", order: "Perissodactyla", family: "Equidae", description: "A domesticated odd-toed ungulate. Horses have been companions and workers for humans for thousands of years." },
-      { scientificName: "Bubo bubo", commonName: "Eurasian Eagle-Owl", class: "Aves", order: "Strigiformes", family: "Strigidae", description: "One of the largest species of owl. These powerful predators can take prey as large as foxes and young deer." }
-    ];
-    setTimeout(() => {
-      setSpecies(mockSpecies);
-      setLoading(false);
-    }, 600);
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedQuery, selectedClass, selectedOrder, selectedFamily, selectedGenus, selectedSpecies]);
+
+  // Fetch sidebar taxonomy once on mount (unfiltered, high limit)
+  useEffect(() => {
+    fetch(`${API_BASE}/api/species/browse?limit=100`)
+      .then(r => r.json())
+      .then(json => { if (json.success) setAllSpecies(json.data || []); })
+      .catch(() => {}); // non-critical — sidebar degrades gracefully
   }, []);
 
-  useEffect(() => {
-    filterSpecies();
-    setCurrentPage(1);
-  }, [species, searchQuery, selectedClass, selectedOrder, selectedFamily, selectedGenus, selectedSpecies]);
+  // Fetch filtered + paginated results
+  const fetchResults = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ page: currentPage, limit: ITEMS_PER_PAGE });
+      if (debouncedQuery)           params.set('q',      debouncedQuery);
+      if (selectedClass  !== 'all') params.set('class',  selectedClass);
+      if (selectedOrder  !== 'all') params.set('order',  selectedOrder);
+      if (selectedFamily !== 'all') params.set('family', selectedFamily);
+      if (selectedGenus  !== 'all') params.set('genus',  selectedGenus);
+      if (selectedSpecies !== 'all') params.set('species', selectedSpecies);
 
-  const filterSpecies = () => {
-    let filtered = species;
+      const res  = await fetch(`${API_BASE}/api/species/browse?${params}`);
+      const json = await res.json();
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(s =>
-        s.commonName.toLowerCase().includes(query) ||
-        s.scientificName.toLowerCase().includes(query) ||
-        s.family.toLowerCase().includes(query) ||
-        s.order.toLowerCase().includes(query) ||
-        s.class.toLowerCase().includes(query)
-      );
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to load specimens');
+
+      setResults(json.data || []);
+      setTotalResults(json.pagination?.total  ?? 0);
+      setTotalPages(json.pagination?.pages ?? 0);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
+  }, [debouncedQuery, selectedClass, selectedOrder, selectedFamily, selectedGenus, selectedSpecies, currentPage]);
 
-    if (selectedClass !== 'all')   filtered = filtered.filter(s => s.class === selectedClass);
-    if (selectedOrder !== 'all')   filtered = filtered.filter(s => s.order === selectedOrder);
-    if (selectedFamily !== 'all')  filtered = filtered.filter(s => s.family === selectedFamily);
-    if (selectedGenus !== 'all')   filtered = filtered.filter(s => s.scientificName.split(' ')[0] === selectedGenus);
-    if (selectedSpecies !== 'all') filtered = filtered.filter(s => s.scientificName.split(' ')[1] === selectedSpecies);
+  useEffect(() => { fetchResults(); }, [fetchResults]);
 
-    setFilteredSpecies(filtered);
-  };
+  // ── Derive filter dropdown options from allSpecies (unfiltered totals) ──
+  const getUniqueClasses  = () => [...new Set(allSpecies.map(s => s.class).filter(Boolean))];
+  const getUniqueOrders   = () => [...new Set(allSpecies.map(s => s.order).filter(Boolean))];
+  const getUniqueFamilies = () => [...new Set(allSpecies.map(s => s.family).filter(Boolean))];
+  const getUniqueGenera   = () => [...new Set(allSpecies.map(s => s.genus).filter(Boolean))];
+  const getUniqueSpecies  = () => [...new Set(allSpecies.map(s => s.speciesEpithet).filter(Boolean))];
 
-  const getUniqueClasses  = () => [...new Set(species.map(s => s.class))];
-  const getUniqueOrders   = () => [...new Set(species.map(s => s.order))];
-  const getUniqueFamilies = () => [...new Set(species.map(s => s.family))];
-  const getUniqueGenera   = () => [...new Set(species.map(s => s.scientificName.split(' ')[0]))];
-  const getUniqueSpecies  = () => [...new Set(species.map(s => s.scientificName.split(' ')[1]))];
-
-  const countByClass   = (v) => species.filter(s => s.class === v).length;
-  const countByOrder   = (v) => species.filter(s => s.order === v).length;
-  const countByFamily  = (v) => species.filter(s => s.family === v).length;
-  const countByGenus   = (v) => species.filter(s => s.scientificName.split(' ')[0] === v).length;
-  const countBySpecies = (v) => species.filter(s => s.scientificName.split(' ')[1] === v).length;
-
-  // Pagination
-  const indexOfLastItem  = currentPage * ITEMS_PER_PAGE;
-  const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
-  const currentSpecies   = filteredSpecies.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages       = Math.ceil(filteredSpecies.length / ITEMS_PER_PAGE);
+  const countByClass   = (v) => allSpecies.filter(s => s.class === v).length;
+  const countByOrder   = (v) => allSpecies.filter(s => s.order === v).length;
+  const countByFamily  = (v) => allSpecies.filter(s => s.family === v).length;
+  const countByGenus   = (v) => allSpecies.filter(s => s.genus === v).length;
+  const countBySpecies = (v) => allSpecies.filter(s => s.speciesEpithet === v).length;
 
   // Active filters
   const hasActiveFilters = !!(
@@ -186,12 +191,12 @@ const SpeciesListPage = () => {
   );
 
   const activeFilters = [
-    searchQuery       && { key: 'q',       label: `"${searchQuery}"`,             onRemove: () => setSearchQuery('') },
-    selectedClass   !== 'all' && { key: 'cls',  label: `Class: ${selectedClass}`,   onRemove: () => { setSelectedClass('all'); setSelectedOrder('all'); setSelectedFamily('all'); } },
-    selectedOrder   !== 'all' && { key: 'ord',  label: `Order: ${selectedOrder}`,   onRemove: () => setSelectedOrder('all') },
-    selectedFamily  !== 'all' && { key: 'fam',  label: `Family: ${selectedFamily}`, onRemove: () => setSelectedFamily('all') },
-    selectedGenus   !== 'all' && { key: 'gen',  label: `Genus: ${selectedGenus}`,   onRemove: () => setSelectedGenus('all') },
-    selectedSpecies !== 'all' && { key: 'sp',   label: `Species: ${selectedSpecies}`, onRemove: () => setSelectedSpecies('all') },
+    searchQuery         && { key: 'q',   label: `"${searchQuery}"`,              onRemove: () => setSearchQuery('') },
+    selectedClass  !== 'all' && { key: 'cls', label: `Class: ${selectedClass}`,   onRemove: () => { setSelectedClass('all'); setSelectedOrder('all'); setSelectedFamily('all'); } },
+    selectedOrder  !== 'all' && { key: 'ord', label: `Order: ${selectedOrder}`,   onRemove: () => setSelectedOrder('all') },
+    selectedFamily !== 'all' && { key: 'fam', label: `Family: ${selectedFamily}`, onRemove: () => setSelectedFamily('all') },
+    selectedGenus  !== 'all' && { key: 'gen', label: `Genus: ${selectedGenus}`,   onRemove: () => setSelectedGenus('all') },
+    selectedSpecies !== 'all' && { key: 'sp', label: `Species: ${selectedSpecies}`, onRemove: () => setSelectedSpecies('all') },
   ].filter(Boolean);
 
   const clearAllFilters = () => {
@@ -214,6 +219,10 @@ const SpeciesListPage = () => {
     setSelectedFamily('all');
   };
 
+  // ── Index labels (server-side pagination) ──
+  const indexOfFirstItem = (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const indexOfLastItem  = Math.min(currentPage * ITEMS_PER_PAGE, totalResults);
+
   if (error) {
     return (
       <div className="slp-page">
@@ -221,7 +230,7 @@ const SpeciesListPage = () => {
         <div className="slp-error-state">
           <h2>Unable to load specimens</h2>
           <p>{error}</p>
-          <button onClick={() => window.location.reload()} className="slp-error-state__btn">
+          <button onClick={fetchResults} className="slp-error-state__btn">
             Try Again
           </button>
         </div>
@@ -295,7 +304,7 @@ const SpeciesListPage = () => {
         </button>
 
         <TaxonomySidebar
-          species={species}
+          species={allSpecies}
           selectedClass={selectedClass}
           selectedOrder={selectedOrder}
           onSelectClass={handleClassSelect}
@@ -400,9 +409,9 @@ const SpeciesListPage = () => {
             <span className="slp-results-bar__count">
               {loading
                 ? 'Loading specimens…'
-                : filteredSpecies.length === 0
+                : totalResults === 0
                   ? 'No specimens found'
-                  : `Showing ${indexOfFirstItem + 1}–${Math.min(indexOfLastItem, filteredSpecies.length)} of ${filteredSpecies.length} specimen${filteredSpecies.length !== 1 ? 's' : ''}`
+                  : `Showing ${indexOfFirstItem}–${indexOfLastItem} of ${totalResults} specimen${totalResults !== 1 ? 's' : ''}`
               }
             </span>
           </div>
@@ -411,10 +420,10 @@ const SpeciesListPage = () => {
           <div className="slp-results" role="list">
             {loading
               ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-              : currentSpecies.length === 0
+              : results.length === 0
                 ? <EmptyState hasFilters={hasActiveFilters} onClear={clearAllFilters} />
-                : currentSpecies.map((item) => (
-                    <div key={item.scientificName} role="listitem">
+                : results.map((item) => (
+                    <div key={item.jobId} role="listitem">
                       <SpecimenCard specimen={item} />
                     </div>
                   ))
