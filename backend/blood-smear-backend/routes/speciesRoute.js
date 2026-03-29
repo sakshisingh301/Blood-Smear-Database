@@ -345,17 +345,17 @@ router.get('/data/:scientificName', async (req, res) => {
     const bloodSmearData = await UploadMetadata.find({
       scientific_name: scientificName,
       approved: true,
-      status: 'ready_for_access'
+      status: 'ready_for_viewer'
     })
     .select('common_name scientific_name taxonomy health_status stain contributor collected_at source created_at')
     .sort({ created_at: -1 })
     .skip(skip)
     .limit(parseInt(limit));
-    
+
     const total = await UploadMetadata.countDocuments({
       scientific_name: scientificName,
       approved: true,
-      status: 'ready_for_access'
+      status: 'ready_for_viewer'
     });
     
     res.json({
@@ -390,7 +390,7 @@ router.get('/data/:scientificName/:jobId', async (req, res) => {
       scientific_name: scientificName,
       job_id: jobId,
       approved: true,
-      status: 'ready_for_access'
+      status: 'ready_for_viewer'
     });
     
     if (!bloodSmearRecord) {
@@ -456,7 +456,7 @@ router.get('/data', async (req, res) => {
     // Build filter based on taxonomy parameters
     let filter = {
       approved: true,
-      status: 'ready_for_access'
+      status: 'ready_for_viewer'
     };
     
     // If specific taxonomy filters are provided, we'll need to match against the taxonomy field
