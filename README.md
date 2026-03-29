@@ -10,6 +10,12 @@ The Blood Smear Database provides veterinary researchers, clinicians, and studen
 
 ---
 
+## Demo video
+
+[Watch — *The Digital Ark for Animal Blood*](docs/media/The_Digital_Ark_for_Animal_Blood.mp4) (MP4 in this repository.)
+
+---
+
 ## System Architecture
 
 ```mermaid
